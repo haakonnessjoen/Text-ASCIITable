@@ -4,12 +4,12 @@ package Text::ASCIITable;
 @ISA=qw(Exporter);
 @EXPORT = qw();
 @EXPORT_OK = qw();
-$VERSION = '0.14';
+$VERSION = '0.15';
 use Exporter;
 use strict;
 use Carp;
 use Text::ASCIITable::Wrap qw{ wrap };
-use overload '""' => 'drawit';
+use overload '@{}' => 'addrow_overload', '""' => 'drawit';
 
 =head1 NAME
 
@@ -71,6 +71,9 @@ sub new {
   $self->{options}{alignHeadRow} = $self->{options}{alignHeadRow} || 'auto'; # default setting
 
   bless $self;
+
+  tie @{$self->{tiedarr}}, $self;
+
   return $self;
 }
 
@@ -114,6 +117,21 @@ have 3 items in it. And so on. Should be self explanatory. The strings can conta
   Note: It does not require argument to be an array, thus;
   $t->addRow(['id','name']) and $t->addRow('id','name') does the same thing.
 
+This module is also overloaded to accept push. To construct a table with the use of overloading you might do the following:
+
+  $t = new Text::ASCIITable;
+  $t->setCols('one','two','three','four');
+  push @$t, ( "one\ntwo" ) x 4; # Replaces $t->addrow();
+  print $t;                     # Replaces print $t->draw();
+  
+  Which would construct:
+   .=----+-----+-------+-----=.
+   | one | two | three | four |
+   |=----+-----+-------+-----=|
+   | one | one | one   | one  |  # Note that theese two lines
+   | two | two | two   | two  |  # with text are one singe row.
+   '=----+-----+-------+-----='
+
 =cut
 
 sub addRow {
@@ -123,8 +141,8 @@ sub addRow {
   my (@in,@out,@lines,$max);
 
   # Fill out row, if columns are missing (requested) Mar 21  2004 by a anonymous person
-  while (scalar(@_) > scalar(@{$self->{tbl_cols}})) {
-    push @_, '';
+  while (scalar(@_) < scalar(@{$self->{tbl_cols}})) {
+    push @_, ' ';
   }
 
   # Word wrapping:
@@ -143,7 +161,7 @@ sub addRow {
 
   grep {$max = scalar(@{$_}) if scalar(@{$_}) > $max} @lines;
   foreach my $num (0..($max-1)) {
-    my @tmp = map { length(@{$_}[$num]) ? @{$_}[$num] : '' } @lines;
+    my @tmp = map { defined(@{$_}[$num]) && length(@{$_}[$num]) ? @{$_}[$num] : '' } @lines;
     push @out, [ @tmp ];
   }
 
@@ -154,6 +172,11 @@ sub addRow {
   $self->{tbl_rowline}{scalar(@{$self->{tbl_rows}})} = 1;
 
   return undef;
+}
+
+sub addrow_overload {
+  my $self = shift;
+  return $self->{tiedarr};
 }
 
 # backwardscompatibility, deprecated
@@ -225,8 +248,26 @@ sub setColWidth {
   return undef;
 }
 
-# drawing etc, below
+sub headingWidth {
+	my $self = shift;
+  my $title = $self->{options}{headingText};
+  if ($title =~ m/\n/) {
+    my $width=0;
+    my @lines = split(/\r?\n/,$title);
+    foreach my $line (@lines) {
+      if ((my $var = $self->count($line)) > $width) {
+        $width = $var;
+      }
+    }
+    return $width;
+  } else {
+    return $self->count($title);
+  }
+}
 
+# drawing etc, below
+# This function must be totally rewritten one day, it is
+# really slow, and ... dumb. ;)
 sub getColWidth {
   my ($self,$colname,$ignore) = @_;
   my $pos = &find($colname,$self->{tbl_cols});
@@ -238,8 +279,9 @@ sub getColWidth {
   if (defined($self->{options}{headingText}) && !defined($ignore)) {
     # tablewidth before any cols are expanded
     my $width = $self->getTableWidth('ignore some stuff.. you know..') - 4;
-    if ($self->count($self->{options}{headingText}) > $width) {
-      my $extra = $self->count($self->{options}{headingText}) - $width;
+    my $headingwidth = $self->headingWidth();
+    if ($headingwidth > $width) {
+      my $extra = $headingwidth - $width;
       my $cols = scalar(@{$self->{tbl_cols}});
       $extra_for_all = int($extra/$cols);
       $extrasome = $extra % $cols; # takk for hjelpa rune :P
@@ -261,7 +303,7 @@ sub getColWidth {
   my $maxsize=0;
   grep { $maxsize = $self->count($_) if $self->count($_) > $maxsize } split(/\n/,$colname); # bugfix 0.13
 
-  if ($self->{tbl_width_strict}{$colname} == 1 && int($self->{tbl_width}{$colname}) > 0) {
+  if (defined($self->{tbl_width_strict}{$colname}) && ($self->{tbl_width_strict}{$colname} == 1) && int($self->{tbl_width}{$colname}) > 0) {
     # maxsize plus the spaces on each side
     $self->{cache_width}{$colname} = $self->{tbl_width}{$colname} + 2 + (defined($extratbl{$colname}) ? $extratbl{$colname} : 0);
     return $self->{cache_width}{$colname};
@@ -286,8 +328,14 @@ sub getTableWidth {
   my $self = shift;
   my $ignore = shift;
   my $totalsize = 1;
-  grep {$totalsize += $self->getColWidth($_,(defined($ignore) ? 'ignoreheading' : undef)) + 1} @{$self->{tbl_cols}};
-  return $totalsize;
+  if (!defined($self->{cache_TableWidth}) && !$ignore) {
+    grep {$totalsize += $self->getColWidth($_,undef) + 1} @{$self->{tbl_cols}};
+    $self->{cache_TableWidth} = $totalsize;
+  } elsif ($ignore) {
+    grep {$totalsize += $self->getColWidth($_,'ignoreheading') + 1} @{$self->{tbl_cols}};
+    return $totalsize;
+  }
+  return $self->{cache_TableWidth};
 }
 
 sub drawLine {
@@ -367,6 +415,10 @@ a heading/title to the table. The heading-part of the table is automaticly shown
 the headingText option contains text. B<Note:> If this text is so long that it makes the
 table wider, it will not hesitate to change width of columns that have "strict width".
 
+It supports multiline, and with Text::ASCIITable::Wrap you may wrap your text before entering
+it, to prevent the title from expanding the table. Internal wrapping-support for headingText
+might come in the future.
+
 =item headingAlign
 
 Align the heading(as mentioned above) to left, right, center, auto or using a subroutine.
@@ -437,12 +489,13 @@ sub drawSingleColumnRow {
 
   my $contents = $start;
   my $width = 0;
+  my $tablewidth = $self->getTableWidth();
   # ok this is a bad shortcut, but 'till i get up with a better one, I use this.
-  if (($self->getTableWidth() - 4) < $self->count($text) && $opt eq 'title') {
+  if (($tablewidth - 4) < $self->count($text) && $opt eq 'title') {
     $width = $self->count($text);
   }
   else {
-    $width = $self->getTableWidth() - 4;
+    $width = $tablewidth - 4;
   }
   $contents .= ' '.$self->align(
                        $text,
@@ -691,11 +744,22 @@ sub draw {
   my ($rstart,$rstop,$rline,$rdelim) = defined($rowline) ? @{$rowline} : @{$self->{des_rowline}};
   my $contents=""; $page = defined($page) ? $page : 0;
 
+  delete $self->{cache_TableWidth}; # Clear cache
+
   $contents .= $self->getPart($page,$self->drawLine($tstart,$tstop,$tline,$tdelim)) unless $self->{options}{hide_FirstLine};
   if (defined($self->{options}{headingText})) {
-    $contents .= $self->getPart($page,$self->drawSingleColumnRow($self->{options}{headingText},$self->{options}{headingStartChar} || '|',$self->{options}{headingStopChar} || '|',$self->{options}{headingAlign} || 'center','title'));
+    my $title = $self->{options}{headingText};
+    if ($title =~ m/\n/) { # Multiline title-support
+      my @lines = split(/\r?\n/,$title);
+      foreach my $line (@lines) {
+        $contents .= $self->getPart($page,$self->drawSingleColumnRow($line,$self->{options}{headingStartChar} || '|',$self->{options}{headingStopChar} || '|',$self->{options}{headingAlign} || 'center','title'));
+      }
+    } else {
+      $contents .= $self->getPart($page,$self->drawSingleColumnRow($self->{options}{headingText},$self->{options}{headingStartChar} || '|',$self->{options}{headingStopChar} || '|',$self->{options}{headingAlign} || 'center','title'));
+    }
     $contents .= $self->getPart($page,$self->drawLine($mstart,$mstop,$mline,$mdelim)) unless $self->{options}{hide_HeadLine};
   }
+
   unless ($self->{options}{hide_HeadRow}) {
 		# multiline-column-support
 		foreach my $row (@{$self->{tbl_multilinecols}}) {
@@ -773,6 +837,46 @@ sub align {
   }
 }
 
+sub TIEARRAY {
+  my $self = shift;
+  my $elemsize = shift;
+
+  # ok.. I couldn't figure a better way to get to $self
+  # from inside these functions. So please tell me how to
+  # really do it. This must be a stupid way of doing it.
+  return bless { imstupid => $self } , ref $self;
+}
+sub FETCH {
+  shift()->{imstupid}->reperror('usage: push @$t,qw{ one more row };');
+  return undef;
+}
+sub STORE {
+  my $self = shift;
+  my ($index, $value) = @_;
+
+  shift()->{imstupid}->reperror('usage: push @$t,qw{ one more row };');
+}
+sub FETCHSIZE {
+  my $self = shift;
+  return 0;
+}
+sub STORESIZE {
+  my $self = shift;
+  return;
+}
+
+# PodMaster should be really happy now, since this was in his wishlist. (ref: http://perlmonks.thepen.com/338456.html)
+sub PUSH {
+  my $self = shift()->{imstupid};
+  my @list = @_;
+
+  if (scalar(@list) > scalar(@{$self->{tbl_cols}})) {
+    $self->reperror("too many elements added");
+    return;
+  }
+
+  $self->addRow(@list);
+}
 sub reperror {
   my $self = shift;
   print STDERR Carp::shortmess(shift) if $self->{options}{reportErrors};
@@ -853,7 +957,7 @@ Håkon Nessjøen, <lunatic@cpan.org>
 
 =head1 VERSION
 
-Current version is 0.14.
+Current version is 0.15.
 
 =head1 COPYRIGHT
 

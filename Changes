@@ -1,6 +1,12 @@
 Revision history for Perl extension Text::ASCIITable.
 
-0.14	Sun	Mar	21 23:56:12 2004
+0.15  Tue Apr 06 04:00:00 2004
+	- Added overloading of @{} so you can use push to add rows.
+	- Fixed a small unharmful bug in addRow.
+	- A few speed-fixes.
+	- Added support for multiline in headingText.
+
+0.14  Sun Mar 21 23:56:12 2004
 	- Cleaned/rewrote the Text::ASCIITable::Wrap code. Same result, better code.
 	- Removed code wich prevented a external callbacksub for align from functioning
 	  if allowANSI or allowHTML was set.
@@ -10,7 +16,7 @@ Revision history for Perl extension Text::ASCIITable.
 	- Columns containing just 0 was not shown. Fixed.
 	- addRow no longer expects exact number of columns.
 
-0.13	Sun	Feb	22 20:30:00 2004
+0.13  Sun Feb 22 20:30:00 2004
 	- Fixed first bug. Tables got wider if it was a lot of html/ansi codes
 	  even if ansisupport was turned on.
 	- Fiex bug in draw() on designoutput. delim character was set to
@@ -23,16 +29,16 @@ Revision history for Perl extension Text::ASCIITable.
 	  width. Thanks to Khemir Nadim ibn Hamouda <nadim@khemir.net> for
 	  the code and the idea.
 
-0.12	Sat     Jan     17 00:01:21 2004
+0.12  Sat Jan 17 00:01:21 2004
 	- Made the ANSI stripper accept more advanced escape-codes.
 	- Added support for auto-aligning.
 	- Added support for "user-defined" aligning.
 	- Added alignColName to align each column in the "column-name-row".
 	- Beautified some code.
 
-0.11	Sat	Aug	16 16:33:42 2003
+0.11  Sat Aug 16 16:33:42 2003
 	- Added easier access to printing. You can now use print $t; which
-		does the same as print $t->draw() do.
+	  does the same as print $t->draw() do.
 	- Changed the default look/"theme". It was just too ugly :P
 	- Added multiline support for columnnames.
 	- Cleaned up some code.

@@ -17,9 +17,8 @@ eval {
 };
 if (!$@) {ok(undef)} else {ok(1)}
 @arr = split(/\n/,$content);
-$err = 1;
-ok(length(@arr[4]) > $t->getTableWidth()?undef:1);
-ok(length(@arr[3]) == $t->getTableWidth()?undef:1);
+ok(length($arr[4]) > $t->getTableWidth()?undef:1);
+ok(length($arr[3]) == $t->getTableWidth()?undef:1);
 if (scalar(@arr) == 7) {ok(undef);} else {ok(1);}
 
 sub ok{print(defined(shift)?"not ok $i\n":"ok $i\n");$i++;}

@@ -27,7 +27,7 @@ if (!$@) {
 }
 $i++;
 my @arr = split(/\n/,$content);
-if (length(@arr[0]) == $t->getTableWidth()) {
+if (length($arr[0]) == $t->getTableWidth()) {
   print "ok ".$i."\n"; $i++;
 } else {
   print "not ok ".$i."\n";
