@@ -4,7 +4,7 @@ package Text::ASCIITable;
 @ISA=qw(Exporter);
 @EXPORT = qw();
 @EXPORT_OK = qw();
-$VERSION = '0.02';
+$VERSION = '0.04';
 use Exporter;
 use strict;
 use Carp;
@@ -31,7 +31,8 @@ text to your console or other fixed-size displays.
   $t->addRow('espen','Espen Ursin-Holm');
   $t->addRow('mamikk','Martin Mikkelsen');
   $t->addRow('p33r','Espen A. Jütte');
-  print $t->draw();
+  print $t->draw(); 
+  
 
 =head1 FUNCTIONS
 
@@ -153,31 +154,89 @@ sub drawLine {
 }
 
 sub drawRow {
-  my ($self,$row,$allowalign,$delim) = @_;
+  my ($self,$row,$allowalign,$start,$stop,$delim) = @_;
   do { print STDERR Carp::shortmess "Missing reqired parameters"; return 1; } unless defined($row);
   $allowalign = defined($allowalign) ? $allowalign : 1;
   $delim = defined($delim) ? $delim : '|';
 
-  my $contents = $delim;
+  my $contents = $start;
   for (my $i=0;$i<scalar(@{$row});$i++) {
     my $text = @{$row}[$i];
+
     if ($allowalign == 1 && scalar(@{$self->{tbl_alignright}}) && defined(finn(@{$self->{tbl_cols}}[$i],$self->{tbl_alignright}))) {
       $contents .= ' ' x ($self->getColWidth(@{$self->{tbl_cols}}[$i]) - length($text) - 1);
-      $contents .= $text.' '.$delim;
+      $contents .= $text.' ';
     } else {
       $contents .= ' '.$text;
       $contents .= ' ' x ($self->getColWidth(@{$self->{tbl_cols}}[$i]) - length($text) - 1);
-      $contents .= $delim;
     }
+    $contents .= $delim if ($i != scalar(@{$row}) - 1);
   }
-  $contents .= "\n";
+  $contents .= $stop."\n";
 }
 
-=head2 draw([@topdesign,@rowdelims,@middle,@bottom])
+=head2 draw([@topdesign,@toprow,@middle,@middlerow,@bottom])
 
 All the arrays containing the layout is optional. If you want to make your own "design" to the table, you
 can do that by giving this method these arrays containing information about which characters to use
 where.
+
+=head3 Custom tables
+
+The draw method takes C<5> arrays of strings to define the layout. The first, third and fifth is B<LINE>
+layout and the second and fourth is B<ROW> layout. The C<fourth> parameter is repeated for each row in the table.
+
+ $t->draw(<LINE>,<ROW>,<LINE>,<ROW>,<LINE>)
+
+=over 4
+
+=item LINE
+
+Takes an array of C<4> strings. For example C<['|','|','-','+']>
+
+=over 4
+
+=item *
+
+LEFT - Defines the left chars. May be more than one char.
+
+=item *
+
+RIGHT - Defines the right chars. May be more then one char.
+
+=item *
+
+LINE - Defines the char used for the line. B<Must be only one char>.
+
+=item *
+
+DELIMETER - Defines the char used for the delimeters. B<Must be only one char>.
+
+=back
+
+=item ROW
+
+Takes an array of C<3> strings. You should not give more than one char to any of these parameters,
+if you do.. it will probably destroy the output.. Unless you do it with the knowledge
+of how it will end up. An example: C<['|','|','+']>
+
+=over 4
+
+=item *
+
+LEFT - Define the char used for the left side of the table.
+
+=item *
+
+RIGHT - Define the char used for the right side of the table.
+
+=item *
+
+DELIMETER - Defines the char used for the delimeters.
+
+=back
+
+=back
 
 Examples:
 
@@ -187,25 +246,28 @@ The easiest way:
 
 Explanatory example:
 
- $t->draw( ['L','R','-','D'],   # L------D------R
-           ['H','M'],           # | info H info |  (the M is delemiter on the rows, like H is on the colums-row)
-           ['L','R','-','D'],   # L------D------R
-           ['L','R ','_','D']   # L______D______R
-          ));
+ $t->draw( ['L','R','l','D'],  # LllllllDllllllR
+           ['L','R','D'],      # L info D info R
+           ['L','R','l','D'],  # LllllllDllllllR
+           ['L','R','D'],      # L info D info R
+           ['L','R','l','D']   # LllllllDllllllR
+          );
 
 Nice example:
 
  $t->draw( ['.','.','-','-'],   # .-------------.
-           ['|','|'],           # | info | info |
+           ['|','|','|'],       # | info | info |
            ['|','|','-','-'],   # |-------------|
+           ['|','|','|'],       # | info | info |
            [' \\','/ ','_','|'] #  \_____|_____/
           ));
 
 Nice example2:
 
  $t->draw( ['.=','=.','-','-'],   # .=-----------=.
-           ['|','|'],             # | info | info |
+           ['|','|','|'],         # | info | info |
            ['|=','=|','-','+'],   # |=-----+-----=|
+           ['|','|','|'],         # | info | info |
            ["'=","='",'-','-']    # '=-----------='
           ));
 
@@ -213,17 +275,18 @@ Nice example2:
 
 sub draw {
   my $self = shift;
-  my ($top,$rowdelims,$middle,$bottom) = @_;
+  my ($top,$toprow,$middle,$middlerow,$bottom) = @_;
   my ($tstart,$tstop,$tline,$tdelim) = defined($top) ? @{$top} : undef;
+  my ($trstart,$trstop,$trdelim) = defined($toprow) ? @{$toprow} : undef;
   my ($mstart,$mstop,$mline,$mdelim) = defined($middle) ? @{$middle} : undef;
+  my ($mrstart,$mrstop,$mrdelim) = defined($middlerow) ? @{$middlerow} : undef;
   my ($bstart,$bstop,$bline,$bdelim) = defined($bottom) ? @{$bottom} : undef;
-  my ($trowdelim,$browdelim) = defined($rowdelims) ? @{$rowdelims} : undef;
   my $contents="";
   $contents .= $self->drawLine(iif($tstart,'.'),iif($tstop,'.'),$tline,$tdelim);
-  $contents .= $self->drawRow($self->{tbl_cols},0,$trowdelim);
+  $contents .= $self->drawRow($self->{tbl_cols},0,iif($trstart,'|'),iif($trstop,'|'),iif($trdelim,'|'));
   $contents .= $self->drawLine(iif($mstart,' >'),iif($mstop,'< '),$mline,$mdelim);
   for (@{$self->{tbl_rows}}) {
-    $contents .= $self->drawRow($_,1,$browdelim);
+    $contents .= $self->drawRow($_,1,iif($mrstart,'|'),iif($mrstop,'|'),iif($mrdelim,'|'));
   }
   $contents .= $self->drawLine(iif($bstart,"'"),iif($bstop,"'"),$bline,$bdelim);
   return $contents;

@@ -13,8 +13,8 @@ SYNOPSIS
       $t->addRow('espen','Espen Ursin-Holm');
       $t->addRow('mamikk','Martin Mikkelsen');
       $t->addRow('p33r','Espen A. Jütte');
-      print $t->draw();
-
+      print $t->draw(); 
+  
 FUNCTIONS
   setCols(@cols)
     Define the columns for the table(compare with <TH> in HTML). For example
@@ -39,10 +39,41 @@ FUNCTIONS
     If you need to know how wide your table will be before you draw it. Use
     this function.
 
-  draw([@topdesign,@rowdelims,@middle,@bottom])
+  draw([@topdesign,@toprow,@middle,@middlerow,@bottom])
     All the arrays containing the layout is optional. If you want to make
     your own "design" to the table, you can do that by giving this method
     these arrays containing information about which characters to use where.
+
+   Custom tables
+    The draw method takes 5 arrays of strings to define the layout. The
+    first, third and fifth is LINE layout and the second and fourth is ROW
+    layout. The "fourth" parameter is repeated for each row in the table.
+
+     $t->draw(<LINE>,<ROW>,<LINE>,<ROW>,<LINE>)
+
+    LINE
+        Takes an array of 4 strings. For example "['|','|','-','+']"
+
+        *   LEFT - Defines the left chars. May be more than one char.
+
+        *   RIGHT - Defines the right chars. May be more then one char.
+
+        *   LINE - Defines the char used for the line. Must be only one
+            char.
+
+        *   DELIMETER - Defines the char used for the delimeters. Must be
+            only one char.
+
+    ROW Takes an array of 3 strings. You should not give more than one char
+        to any of these parameters, if you do.. it will probably destroy the
+        output.. Unless you do it with the knowledge of how it will end up.
+        An example: "['|','|','+']"
+
+        *   LEFT - Define the char used for the left side of the table.
+
+        *   RIGHT - Define the char used for the right side of the table.
+
+        *   DELIMETER - Defines the char used for the delimeters.
 
     Examples:
 
@@ -52,25 +83,28 @@ FUNCTIONS
 
     Explanatory example:
 
-     $t->draw( ['L','R','-','D'],   # L------D------R
-               ['H','M'],           # | info H info |  (the M is delemiter on the rows, like H is on the colums-row)
-               ['L','R','-','D'],   # L------D------R
-               ['L','R ','_','D']   # L______D______R
-              ));
+     $t->draw( ['L','R','l','D'],  # LllllllDllllllR
+               ['L','R','D'],      # L info D info R
+               ['L','R','l','D'],  # LllllllDllllllR
+               ['L','R','D'],      # L info D info R
+               ['L','R','l','D']   # LllllllDllllllR
+              );
 
     Nice example:
 
      $t->draw( ['.','.','-','-'],   # .-------------.
-               ['|','|'],           # | info | info |
+               ['|','|','|'],       # | info | info |
                ['|','|','-','-'],   # |-------------|
+               ['|','|','|'],       # | info | info |
                [' \\','/ ','_','|'] #  \_____|_____/
               ));
 
     Nice example2:
 
      $t->draw( ['.=','=.','-','-'],   # .=-----------=.
-               ['|','|'],             # | info | info |
+               ['|','|','|'],         # | info | info |
                ['|=','=|','-','+'],   # |=-----+-----=|
+               ['|','|','|'],         # | info | info |
                ["'=","='",'-','-']    # '=-----------='
               ));
 

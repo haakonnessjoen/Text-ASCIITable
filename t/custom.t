@@ -33,10 +33,11 @@ eval {
 $alerted=0;
 local $SIG{'__WARN__'} = sub { if ($alerted == 0) { print "not ok $i\n"; $alerted=1; warn $_[0]; } };
 local $SIG{'__DIE__'} = sub { if ($alerted == 0) { print "not ok $i\n"; $alerted=1; warn $_[0]; } };
-$content = $t->draw( ['.','.','-','-'],
-                ['-'.'-'],
-                ['|','|','-','-'],
-                [' \\','/ ','_','|']
+$content = $t->draw( ['L','R','L','D'],
+                     ['L','R','D'],
+                     ['L','R','L','D'],
+                     ['L','R','D'],
+                     ['L','R','L','D']
               );
 print "ok $i\n" if ($alerted == 0);
 };

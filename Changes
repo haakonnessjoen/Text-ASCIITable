@@ -1,10 +1,15 @@
 Revision history for Perl extension Text::ASCIITable.
 
+0.04  Sun Dec 22 23:33:45 2002
+        - Added support for changing layout on rows.
+        - Updated the documentation
+
 0.03  Sun Dec 22 05:33:43 2002
         - fixed a bug in draw() which could have made weird
           output in some cases.
         - Fixed pod documentation to display code correctly when
           converted to html.
+        - Released it on CPAN.
 
 0.02  --- --- -- --:--:-- 2002
         - started porting of my similar function made in PHP

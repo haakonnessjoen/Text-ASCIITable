@@ -3,4 +3,5 @@ README
 MANIFEST
 Makefile.PL
 ASCIITable.pm
-test.pl
+t/default.t
+t/custom.t
