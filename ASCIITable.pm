@@ -4,7 +4,7 @@ package Text::ASCIITable;
 @ISA=qw(Exporter);
 @EXPORT = qw();
 @EXPORT_OK = qw();
-$VERSION = '0.04';
+$VERSION = '0.05';
 use Exporter;
 use strict;
 use Carp;
