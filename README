@@ -9,7 +9,7 @@ SHORT DESCRIPTION
 SYNOPSIS
       use Text::ASCIITable;
       $t = new Text::ASCIITable;
-      $t->setCols(['Nickname','Name']);
+      $t->setCols('Nickname','Name');
       $t->addRow('Lunatic-|','Håkon Nessjøen');
       $t->addRow('tesepe','William Viker');
       $t->addRow('espen','Espen Ursin-Holm');
@@ -39,18 +39,25 @@ FUNCTIONS
     be self explanatory. The strings can contain newlines.
 
       Note: It does not require argument to be an array, thus;
-      $t->addRow(['id','name']) or $t->addRow('id','name') does the same thing.
+      $t->addRow(['id','name']) and $t->addRow('id','name') does the same thing.
 
   alignCol($col,$direction)
     Given a columnname, it aligns all data to the given direction in the
     table. This looks nice on numerical displays in a column. The column
-    names in the table will not be unaffected by the alignment. Possible
-    directions is: left, center and right. (Hint: It is often very useful to
-    align numbers to the right, and text to the left.)
+    names in the table will be unaffected by the alignment. Possible
+    directions is: left, center, right, auto or your own subroutine. (Hint:
+    Using auto(default), aligns numbers right and text left)
+
+  alignColName($col,$direction)
+    Given a columnname, it aligns the columnname in the row explaining
+    columnnames, to the given direction. (auto,left,right,center or a
+    subroutine) (Hint: Overrides the 'alignHeadRow' option for the specified
+    column.)
 
   setColWidth($col,$width,$strict)
     Wordwrapping/strict size. Set a max-width(in chars) for a column. If
-    last parameter is 1, the column will be set to the specified width.
+    last parameter is 1, the column will be set to the specified width, even
+    if no text is that long.
 
      Usage:
       $t->setColWidth('Description',30);
@@ -91,7 +98,8 @@ FUNCTIONS
 
     alignHeadRow
         Set wich direction the Column-names(in the headrow) are supposed to
-        point. Must be left, right or center.
+        point. Must be left, right, center, auto or a user-defined
+        subroutine.
 
     hide_FirstLine, hide_HeadLine, hide_LastLine
         Speaks for it self?
@@ -109,7 +117,8 @@ FUNCTIONS
         that have "strict width".
 
     headingAlign
-        Align the heading(as mentioned above) to left, right or center.
+        Align the heading(as mentioned above) to left, right, center, auto
+        or using a subroutine.
 
     headingStartChar, headingStopChar
         Choose the startingchar and endingchar of the row where the title
@@ -206,6 +215,23 @@ FUNCTIONS
        | info | info |
        '=-----------='
 
+    User-defined subroutines for aligning
+
+    If you want to format your text more throughoutly than "auto", or think
+    you have a better way of centering text; you can make your own
+    subroutine.
+
+      Here's a exampleroutine that aligns the text to the right.
+  
+      sub myownalign_cb {
+        my ($text,$length,$count,$strict) = @_;
+        $text = (" " x ($length - $count)).$text;
+        return substr($text,0,$length) if ($strict);
+        return $text;
+      }
+
+      $t->alignCol('Info',\myownalign_cb);
+
 FEATURES
     In case you need to know if this module has what you need, I have made
     this list of features included in Text::ASCIITable.
@@ -217,9 +243,11 @@ FEATURES
         table.
 
     Text Aligning
-        Align the text in a column to the left, or right or center. Usually
-        you want to align text to right if you only have numbers in that
-        row.
+        Align the text in a column auto(matically), left, right or center.
+        Usually you want to align text to right if you only have numbers in
+        that row. The 'auto' direction aligns text to left, and numbers to
+        the right. You can also use your own subroutine as a
+        callback-function to align your text.
 
     Multiline support in rows
         With the \n(ewline) character you can have rows use more than just
@@ -256,12 +284,8 @@ REQUIRES
 AUTHOR
     Håkon Nessjøen, lunatic@cpan.org
 
-UPDATING
-    Do you want to know when new versions are out, etc? Go to
-    http://files.loopback.no/ASCIITable/
-
 VERSION
-    Current version is 0.11.
+    Current version is 0.12.
 
 COPYRIGHT
     Copyright 2002-2003 by Håkon Nessjøen. All rights reserved. This module

@@ -4,7 +4,7 @@ package Text::ASCIITable;
 @ISA=qw(Exporter);
 @EXPORT = qw();
 @EXPORT_OK = qw();
-$VERSION = '0.11';
+$VERSION = '0.12';
 use Exporter;
 use strict;
 use Carp;
@@ -29,7 +29,7 @@ nice human-readable, or "cool" way.
 
   use Text::ASCIITable;
   $t = new Text::ASCIITable;
-  $t->setCols(['Nickname','Name']);
+  $t->setCols('Nickname','Name');
   $t->addRow('Lunatic-|','Håkon Nessjøen');
   $t->addRow('tesepe','William Viker');
   $t->addRow('espen','Espen Ursin-Holm');
@@ -52,9 +52,25 @@ Initialize a new table. You can specify output-options. For more options, check 
 =cut
 
 sub new {
-  my $self = {tbl_cols => [],tbl_rows => [],tbl_align => {},options => $_[1] || { }};
+  my $self = {
+		tbl_cols => [],
+		tbl_rows => [],
+		tbl_align => {},
+
+		des_top       => ['.=','=.','-','+'],
+		des_middle    => ['|=','=|','-','+'],
+		des_bottom    => ["'=","='",'-','+'],
+		des_rowline   => ['|=','=|','-','+'],
+
+		des_toprow    => ['|','|','|'],
+		des_middlerow => ['|','|','|'],
+
+		options => $_[1] || { }
+  };
+
   $self->{options}{reportErrors} = $self->{options}{reportErrors} || 1; # default setting
-  $self->{options}{alignHeadRow} = $self->{options}{alignHeadRow} || 'left'; # default setting
+  $self->{options}{alignHeadRow} = $self->{options}{alignHeadRow} || 'auto'; # default setting
+
   bless $self;
   return $self;
 }
@@ -75,17 +91,12 @@ sub setCols {
 
   my @lines = map { [ split(/\n/,$_) ] } @_;
 
-	# Multiline support
+  # Multiline support
   my $max=0;
-	my @out;
-  foreach (@lines) {
-    $max = scalar(@{$_}) if scalar(@{$_}) > $max;
-  }
+  my @out;
+  grep {$max = scalar(@{$_}) if scalar(@{$_}) > $max} @lines;
   foreach my $num (0..($max-1)) {
-    my @tmp;
-    foreach (@lines) {
-      push @tmp,@{$_}[$num] || '';
-    }
+    my @tmp = map { @{$_}[$num] || '' } @lines;
     push @out, [ @tmp ];
   }
 
@@ -96,30 +107,13 @@ sub setCols {
   return undef;
 }
 
-# This part was removed due to incompatibilty with multiline and the lack of use.
-#
-#
-#=head2 addCol($col)
-#
-#Add a column to the columnlist. This still can't be done after you have added a row.
-#
-#=cut
-#
-#sub addCol {
-#  my ($self,$col) = @_;
-#  do { $self->reperror("addCol needs a string"); return 1; } unless defined($col);
-#  do { $self->reperror("Cannot add cols at this state"); return 1; } if (scalar(@{$self->{tbl_rows}}) != 0);
-#  push @{$self->{tbl_cols}},$col;
-#  return undef;
-#}
-
 =head2 addRow(@collist)
 
 Adds one row to the table. This must be an array of strings. If you defined 3 columns. This array must
 have 3 items in it. And so on. Should be self explanatory. The strings can contain newlines.
 
   Note: It does not require argument to be an array, thus;
-  $t->addRow(['id','name']) or $t->addRow('id','name') does the same thing.
+  $t->addRow(['id','name']) and $t->addRow('id','name') does the same thing.
 
 =cut
 
@@ -132,6 +126,7 @@ sub addRow {
 
   # Word wrapping:
   if ($hasWrap) {
+    my @s = @_;
     foreach my $c (0..(scalar(@_)-1)) {
       my $width = $self->{tbl_width}{@{$self->{tbl_cols}}[$c]};
       if ($width) {
@@ -146,14 +141,10 @@ sub addRow {
   # Multiline support:
   @lines = map { [ split(/\n/,$_) ] } @in;
   $max=0;
-  foreach (@lines) {
-    $max = scalar(@{$_}) if scalar(@{$_}) > $max;
-  }
+
+  grep {$max = scalar(@{$_}) if scalar(@{$_}) > $max} @lines;
   foreach my $num (0..($max-1)) {
-    my @tmp;
-    foreach (@lines) {
-      push @tmp,@{$_}[$num] || '';
-    }
+    my @tmp = map { @{$_}[$num] || '' } @lines;
     push @out, [ @tmp ];
   }
 
@@ -166,14 +157,6 @@ sub addRow {
   return undef;
 }
 
-=head2 alignCol($col,$direction)
-
-Given a columnname, it aligns all data to the given direction in the table. This looks nice on numerical displays
-in a column. The column names in the table will not be unaffected by the alignment. Possible directions is: left,
-center and right. (Hint: It is often very useful to align numbers to the right, and text to the left.)
-
-=cut
-
 # backwardscompatibility, deprecated
 sub alignColRight {
   my ($self,$col) = @_;
@@ -181,19 +164,43 @@ sub alignColRight {
   return $self->alignCol($col,'right');
 }
 
+=head2 alignCol($col,$direction)
+
+Given a columnname, it aligns all data to the given direction in the table. This looks nice on numerical displays
+in a column. The column names in the table will be unaffected by the alignment. Possible directions is: left,
+center, right, auto or your own subroutine. (Hint: Using auto(default), aligns numbers right and text left)
+
+=cut
+
 sub alignCol {
   my ($self,$col,$direction) = @_;
   do { $self->reperror("alignCol is missing parameter(s)"); return 1; } unless defined($col) && defined($direction);
   do { $self->reperror("Could not find '$col' in columnlist"); return 1; } unless defined(&find($col,$self->{tbl_cols}));
-  $self->{tbl_align}{$col} = $direction;
 
+  $self->{tbl_align}{$col} = $direction;
+  return undef;
+}
+
+=head2 alignColName($col,$direction)
+
+Given a columnname, it aligns the columnname in the row explaining columnnames, to the given direction. (auto,left,right,center
+or a subroutine) (Hint: Overrides the 'alignHeadRow' option for the specified column.)
+
+=cut
+
+sub alignColName {
+  my ($self,$col,$direction) = @_;
+  do { $self->reperror("alignColName is missing parameter(s)"); return 1; } unless defined($col) && defined($direction);
+  do { $self->reperror("Could not find '$col' in columnlist"); return 1; } unless defined(&find($col,$self->{tbl_cols}));
+
+  $self->{tbl_colalign}{$col} = $direction;
   return undef;
 }
 
 =head2 setColWidth($col,$width,$strict)
 
 Wordwrapping/strict size. Set a max-width(in chars) for a column.
-If last parameter is 1, the column will be set to the specified width.
+If last parameter is 1, the column will be set to the specified width, even if no text is that long.
 
  Usage:
   $t->setColWidth('Description',30);
@@ -229,7 +236,7 @@ sub getColWidth {
       my $extra = length($self->{options}{headingText}) - $width;
       my $cols = scalar(@{$self->{tbl_cols}});
       $extra_for_all = int($extra/$cols);
-      $extrasome = $extra % $cols;
+      $extrasome = $extra % $cols; # takk for hjelpa rune :P
       my $antall = 0;
       foreach my $c (0..(scalar(@{$self->{tbl_cols}})-1)) {
         my $col = @{$self->{tbl_cols}}[$c];
@@ -243,11 +250,8 @@ sub getColWidth {
   }
 
   # multiline support in columnnames
-	my $maxsize=0;
-	my @tmp = split(/\n/,$colname);
-	foreach (@tmp) {
-		$maxsize = length($_) if length($_) > $maxsize;
-	}
+  my $maxsize=0;
+  grep { $maxsize = length($_) if length($_) > $maxsize } split(/\n/,$colname);
 
   if ($self->{tbl_width_strict}{$colname} == 1 && int($self->{tbl_width}{$colname}) > 0) {
     # maxsize plus the spaces on each side
@@ -272,9 +276,7 @@ sub getTableWidth {
   my $self = shift;
   my $ignore = shift;
   my $totalsize = 1;
-  for (@{$self->{tbl_cols}}) {
-    $totalsize += $self->getColWidth($_,(defined($ignore) ? 'ignoreheading' : undef)) + 1;
-  }
+  grep {$totalsize += $self->getColWidth($_,(defined($ignore) ? 'ignoreheading' : undef)) + 1} @{$self->{tbl_cols}};
   return $totalsize;
 }
 
@@ -333,7 +335,7 @@ displayed correct when showed in a ANSI compilant terminal. Set this to 1 to ena
 
 =item alignHeadRow
 
-Set wich direction the Column-names(in the headrow) are supposed to point. Must be left, right or center.
+Set wich direction the Column-names(in the headrow) are supposed to point. Must be left, right, center, auto or a user-defined subroutine.
 
 =item hide_FirstLine, hide_HeadLine, hide_LastLine
 
@@ -353,7 +355,7 @@ table wider, it will not hesitate to change width of columns that have "strict w
 
 =item headingAlign
 
-Align the heading(as mentioned above) to left, right or center.
+Align the heading(as mentioned above) to left, right, center, auto or using a subroutine.
 
 =item headingStartChar, headingStopChar
 
@@ -413,7 +415,7 @@ sub drawRow {
 
       $contents .= ' '.$self->align(
                          $text,
-                         $self->{options}{alignHeadRow},
+                         $self->{tbl_colalign}{@{$self->{tbl_cols}}[$i]} || $self->{options}{alignHeadRow} || 'left',
                          $self->getColWidth(@{$self->{tbl_cols}}[$i])-2,
                          ($self->{options}{allowHTML} || $self->{options}{allowANSI}?0:1)
                        ).' ';
@@ -546,71 +548,98 @@ With Options:
    | info | info |
    '=-----------='
 
+B<User-defined subroutines for aligning>
+
+If you want to format your text more throughoutly than "auto", or think you
+have a better way of centering text; you can make your own subroutine.
+
+  Here's a exampleroutine that aligns the text to the right.
+  
+  sub myownalign_cb {
+    my ($text,$length,$count,$strict) = @_;
+    $text = (" " x ($length - $count)).$text;
+    return substr($text,0,$length) if ($strict);
+    return $text;
+  }
+
+  $t->alignCol('Info',\myownalign_cb);
+
 =cut
 
 sub drawit {scalar shift()->draw()}
 
 sub draw {
   my $self = shift;
-	my ($top,$toprow,$middle,$middlerow,$bottom,$rowline) = @_;
-  my ($tstart,$tstop,$tline,$tdelim) = defined($top) ? @{$top} : undef;
-  my ($trstart,$trstop,$trdelim) = defined($toprow) ? @{$toprow} : undef;
-  my ($mstart,$mstop,$mline,$mdelim) = defined($middle) ? @{$middle} : undef;
-  my ($mrstart,$mrstop,$mrdelim) = defined($middlerow) ? @{$middlerow} : undef;
-  my ($bstart,$bstop,$bline,$bdelim) = defined($bottom) ? @{$bottom} : undef;
-  my ($rstart,$rstop,$rline,$rdelim) = defined($rowline) ? @{$rowline} : undef;
+  my ($top,$toprow,$middle,$middlerow,$bottom,$rowline) = @_;
+  my ($tstart,$tstop,$tline,$tdelim) = defined($top) ? @{$top} : @{$self->{des_top}};
+  my ($trstart,$trstop,$trdelim) = defined($toprow) ? @{$toprow} : @{$self->{des_toprow}};
+  my ($mstart,$mstop,$mline,$mdelim) = defined($middle) ? @{$middle} : @{$self->{des_middle}};
+  my ($mrstart,$mrstop,$mrdelim) = defined($middlerow) ? @{$middlerow} : @{$self->{des_middlerow}};
+  my ($bstart,$bstop,$bline,$bdelim) = defined($bottom) ? @{$bottom} : @{$self->{des_bottom}};
+  my ($rstart,$rstop,$rline,$rdelim) = defined($rowline) ? @{$rowline} : @{$self->{des_rowline}};
   my $contents="";
 
-  $contents .= $self->drawLine($tstart || '.=',$tstop || '=.',$tline,$tline) unless $self->{options}{hide_FirstLine};
+  $contents .= $self->drawLine($tstart,$tstop,$tline,$tline) unless $self->{options}{hide_FirstLine};
   if (defined($self->{options}{headingText})) {
     $contents .= $self->drawSingleColumnRow($self->{options}{headingText},$self->{options}{headingStartChar} || '|',$self->{options}{headingStopChar} || '|',$self->{options}{headingAlign} || 'center','title');
-    $contents .= $self->drawLine($mstart || '|=',$mstop || '=|',$mline,$mdelim) unless $self->{options}{hide_HeadLine};
+    $contents .= $self->drawLine($mstart,$mstop,$mline,$mdelim) unless $self->{options}{hide_HeadLine};
   }
   unless ($self->{options}{hide_HeadRow}) {
 		# multiline-column-support
 		foreach my $row (@{$self->{tbl_multilinecols}}) {
-			$contents .= $self->drawRow($row,1,$trstart || '|',$trstop || '|',$trdelim || '|');
+			$contents .= $self->drawRow($row,1,$trstart,$trstop,$trdelim);
 		}
 	}
-  $contents .= $self->drawLine($mstart || '|=',$mstop || '=|',$mline,$mdelim) unless $self->{options}{hide_HeadLine};
+  $contents .= $self->drawLine($mstart,$mstop,$mline,$mdelim) unless $self->{options}{hide_HeadLine};
   my $i=0;
   for (@{$self->{tbl_rows}}) {
     $i++;
-    $contents .= $self->drawRow($_,0,$mrstart || '|',$mrstop || '|',$mrdelim || '|');
-    $contents .= $self->drawLine($rstart || '|',$rstop || '|',$rline,$rdelim) if ($self->{options}{drawRowLine} && $self->{tbl_rowline}{$i} && ($i != scalar(@{$self->{tbl_rows}})));
+    $contents .= $self->drawRow($_,0,$mrstart,$mrstop,$mrdelim);
+    $contents .= $self->drawLine($rstart,$rstop,$rline,$rdelim) if ($self->{options}{drawRowLine} && $self->{tbl_rowline}{$i} && ($i != scalar(@{$self->{tbl_rows}})));
   }
-  $contents .= $self->drawLine($bstart || "'=",$bstop || "='",$bline,$bdelim) unless $self->{options}{hide_LastLine};
-  #use Data::Dumper;
-  return $contents;#."\n".Dumper([$self]);
+  $contents .= $self->drawLine($bstart,$bstop,$bline,$bdelim) unless $self->{options}{hide_LastLine};
+
+  return $contents;
 }
 
 # nifty subs
 
 # Replaces length() because of optional HTML and ANSI stripping
 sub count {
-  my $self = shift;
-  my $str = shift;
+  my ($self,$str) = @_;
   $str =~ s/<.+?>//g if $self->{options}{allowHTML};
-  $str =~ s/\33\[(\d+(;\d+)?)?m//g if $self->{options}{allowANSI};
-	return length($str);
+  $str =~ s/\33\[(\d+(;\d+)?)?[musfwhojBCDHRJK]//g if $self->{options}{allowANSI}; # maybe i should only have allowed ESC[#;#m and not things not related to
+  return length($str);                                                             # color/bold/underline.. But I want to give people as much room as they need.
 }
 
 sub align {
 
   my ($self,$text,$dir,$length,$strict) = @_;
 
-  if ($dir eq "right") {
+  if ($dir =~ /auto/i) {
+    if ($text =~ /^-?\d+(\.\d+)*$/) {
+      $dir = 'right';
+    } else {
+      $dir = 'left';
+    }
+  }
+  if (ref($dir) eq 'CODE') {
+    my $ret = eval { return &{$dir}($text,$length,$self->count($text),$strict); };
+    return 'CB-ERR' if ($@);
+    return 'CB-LEN-ERR' if ($self->count($ret) != $length);
+    return $ret;
+  } elsif ($dir =~ /right/i) {
     $text = (" " x ($length - $self->count($text))).$text;
     return substr($text,0,$length) if ($strict);
     return $text;
-  } elsif ($dir eq "left") {
+  } elsif ($dir =~ /left/i) {
     $text = $text.(" " x ($length - $self->count($text)));
     return substr($text,0,$length) if ($strict);
     return $text;
   } elsif ($dir =~ /center/i) {
     my $left = ( $length - $self->count($text) ) / 2;
     # Someone tell me if this is matematecally totally wrong. :P
-    $left = int($left) + 1 if ($left ne int($left) && $left > 0.4);
+    $left = int($left) + 1 if ($left != int($left) && $left > 0.4);
     my $right = int(( $length - $self->count($text) ) / 2);
     $text = (" " x $left).$text.(" " x $right);
     return substr($text,0,$length) if ($strict);
@@ -623,12 +652,10 @@ sub reperror {
   print STDERR Carp::shortmess(shift) if $self->{options}{reportErrors};
 }
 
-# Couldn't find a better way to search in an array, than to make this function. Please tell me the right way..
+# Best way I could think of, to search the array.. Please tell me if you got a better way.
 sub find {
   return undef unless defined $_[1];
-  for (0..scalar(@{$_[1]})) {
-    return $_ if @{$_[1]}[$_] eq $_[0];
-  }
+  grep {return $_ if @{$_[1]}[$_] eq $_[0];} (0..scalar(@{$_[1]}));
   return undef;
 }
 
@@ -652,9 +679,10 @@ or even add a heading-part to the table.
 
 =item Text Aligning
 
-Align the text in a column to the left, or right or center. Usually you want to align text
-to right if you only have numbers in that row.
-
+Align the text in a column auto(matically), left, right or center. Usually you want to align text
+to right if you only have numbers in that row. The 'auto' direction aligns text to left, and numbers
+to the right. You can also use your own subroutine as a callback-function to align your text.
+ 
 =item Multiline support in rows
 
 With the \n(ewline) character you can have rows use more than just one line on
@@ -695,13 +723,9 @@ Exporter, Carp, Text::Wrap
 
 Håkon Nessjøen, lunatic@cpan.org
 
-=head1 UPDATING
-
-Do you want to know when new versions are out, etc? Go to http://files.loopback.no/ASCIITable/
-
 =head1 VERSION
 
-Current version is 0.11.
+Current version is 0.12.
 
 =head1 COPYRIGHT
 
