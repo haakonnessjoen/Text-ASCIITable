@@ -23,23 +23,29 @@ $i=2;
 $t = new Text::ASCIITable;
 print defined($t->setCols(['id','nick'])) ? "not ok ".$i."\n" : "ok ".$i."\n"; $i++;
 print defined($t->addCol('name')) ? "not ok ".$i."\n" : "ok ".$i."\n"; $i++;
-print defined($t->alignColRight('id')) ? "not ok ".$i."\n" : "ok ".$i."\n"; $i++;
-print defined($t->alignColRight('nick')) ? "not ok ".$i."\n" : "ok ".$i."\n"; $i++;
-print defined($t->addRow('1','Lunatic-|','Håkon Nessjøen')) ? "not ok ".$i."\n" : "ok ".$i."\n"; $i++;
+print defined($t->alignCol('id','right')) ? "not ok ".$i."\n" : "ok ".$i."\n"; $i++;
+print defined($t->alignCol('name','center')) ? "not ok ".$i."\n" : "ok ".$i."\n"; $i++;
+print defined($t->addRow('1','Lunatic-|',"Håkon Nessjøen")) ? "not ok ".$i."\n" : "ok ".$i."\n"; $i++;
 $t->addRow('2','tesepe','William Viker');
 $t->addRow('3','espen','Espen Ursin-Holm');
 $t->addRow('4','bonde','Martin Mikkelsen');
 eval {
-  $alerted=0;
-  local $SIG{'__WARN__'} = sub { if ($alerted == 0) { print "not ok $i\n"; $alerted=1; warn $_[0]; } };
-  local $SIG{'__DIE__'} = sub { if ($alerted == 0) { print "not ok $i\n"; $alerted=1; warn $_[0]; } };
-  $content = $t->draw();
-  print "ok $i\n" if ($alerted == 0);
+$content = $t->draw( ['L','R','L','D'],
+                     ['L','R','D'],
+                     ['L','R','L','D'],
+                     ['L','R','D'],
+                     ['L','R','L','D']
+                    );
 };
+if (!$@) {
+  print "ok ".$i."\n"
+} else {
+  print "not ok ".$i."\n";
+}
 $i++;
 my @arr = split(/\n/,$content);
 if (length(@arr[0]) == $t->getTableWidth()) {
   print "ok ".$i."\n"; $i++;
 } else {
-  print "not ".$i."\n";
+  print "not ok ".$i."\n";
 }

@@ -3,5 +3,8 @@ README
 MANIFEST
 Makefile.PL
 ASCIITable.pm
-t/default.t
-t/custom.t
+t/01_default.t
+t/02_custom.t
+t/03_options.t
+t/04_multiline.t
+t/05_wordwrap.t

@@ -7,7 +7,7 @@
 # Change 1..1 below to 1..last_test_to_print .
 # (It may become useful if the test is moved to ./t subdirectory.)
 
-BEGIN { $| = 1; print "1..8\n"; }
+BEGIN { $| = 1; print "1..9\n"; }
 END {print "not ok 1\n" unless $loaded;}
 use Text::ASCIITable;
 $loaded = 1;
@@ -20,7 +20,7 @@ $i=2;
 # (correspondingly "not ok 13") depending on the success of chunk 13
 # of the test code):
 
-$t = new Text::ASCIITable;
+$t = new Text::ASCIITable({ hide_LastLine => 1, hide_HeadLine => 1 });
 print defined($t->setCols(['id','nick'])) ? "not ok ".$i."\n" : "ok ".$i."\n"; $i++;
 print defined($t->addCol('name')) ? "not ok ".$i."\n" : "ok ".$i."\n"; $i++;
 print defined($t->alignColRight('id')) ? "not ok ".$i."\n" : "ok ".$i."\n"; $i++;
@@ -29,22 +29,15 @@ print defined($t->addRow('1','Lunatic-|','Håkon Nessjøen')) ? "not ok ".$i."\n" 
 $t->addRow('2','tesepe','William Viker');
 $t->addRow('3','espen','Espen Ursin-Holm');
 $t->addRow('4','bonde','Martin Mikkelsen');
+$t->setOptions('hide_HeadRow',1);
+$t->setOptions('hide_FirstLine',1);
 eval {
-$alerted=0;
-local $SIG{'__WARN__'} = sub { if ($alerted == 0) { print "not ok $i\n"; $alerted=1; warn $_[0]; } };
-local $SIG{'__DIE__'} = sub { if ($alerted == 0) { print "not ok $i\n"; $alerted=1; warn $_[0]; } };
-$content = $t->draw( ['L','R','L','D'],
-                     ['L','R','D'],
-                     ['L','R','L','D'],
-                     ['L','R','D'],
-                     ['L','R','L','D']
-              );
-print "ok $i\n" if ($alerted == 0);
+  $content = $t->draw();
 };
 if (!$@) {
-"ok ".$i."\n"
+  print "ok ".$i."\n"
 } else {
-"not ok ".$i."\n";
+  print "not ok ".$i."\n";
 }
 $i++;
 my @arr = split(/\n/,$content);
@@ -53,3 +46,9 @@ if (length(@arr[0]) == $t->getTableWidth()) {
 } else {
   print "not ".$i."\n";
 }
+if (scalar(@arr) == 4) {
+  print "ok ".$i."\n"; $i++;
+} else {
+  print "not ".$i."\n";
+}
+

@@ -1,22 +1,31 @@
 Revision history for Perl extension Text::ASCIITable.
 
+0.06  Sat Jan 11 17:41:32 2003
+	- Went over to use Text::Aligner instead of own functions.
+	- Added alignCol. (Which uses Text::Aligner)
+	- Made alignColRight an alias to alignCol($col,'right');
+	- Added options to hide lines/headrow from output.
+	- Added 'reporterrors' for removal of error reporting to STDERR.
+        - Added multiline support for AddRow.
+	- Added wordwrap support, using Text::Wrap.
+
 0.05  Sun Dec 23 06:46:45 2002
-        - Started to use make dist instead of packing it wrong.
-          (not making its own directory)
+	- Started to use make dist instead of packing it wrong.
+	  (not making its own directory)
 
 0.04  Sun Dec 22 23:33:45 2002
-        - Added support for changing layout on rows.
-        - Updated the documentation
+	- Added support for changing layout on rows.
+	- Updated the documentation
 
 0.03  Sun Dec 22 05:33:43 2002
-        - fixed a bug in draw() which could have made weird
-          output in some cases.
-        - Fixed pod documentation to display code correctly when
-          converted to html.
-        - Released it on CPAN.
+	- fixed a bug in draw() which could have made weird
+	  output in some cases.
+	- Fixed pod documentation to display code correctly when
+	  converted to html.
+	- Released it on CPAN.
 
 0.02  --- --- -- --:--:-- 2002
-        - started porting of my similar function made in PHP
+	- started porting of my similar function made in PHP
 
 0.01  Sat Dec 21 13:12:21 2002
 	- original version; created by h2xs 1.19
