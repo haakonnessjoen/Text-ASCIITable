@@ -4,10 +4,11 @@ package Text::ASCIITable;
 @ISA=qw(Exporter);
 @EXPORT = qw();
 @EXPORT_OK = qw();
-$VERSION = '0.10';
+$VERSION = '0.11';
 use Exporter;
 use strict;
 use Carp;
+use overload '""' => 'drawit';
 
 # Determine if Text::Wrap is installed
 my $hasWrap;
@@ -52,8 +53,8 @@ Initialize a new table. You can specify output-options. For more options, check 
 
 sub new {
   my $self = {tbl_cols => [],tbl_rows => [],tbl_align => {},options => $_[1] || { }};
-  $self->{options}{reportErrors} = iif($self->{options}{reportErrors},1); # default setting
-  $self->{options}{alignHeadRow} = iif($self->{options}{alignHeadRow},'left'); # default setting
+  $self->{options}{reportErrors} = $self->{options}{reportErrors} || 1; # default setting
+  $self->{options}{alignHeadRow} = $self->{options}{alignHeadRow} || 'left'; # default setting
   bless $self;
   return $self;
 }
@@ -61,44 +62,70 @@ sub new {
 =head2 setCols(@cols)
 
 Define the columns for the table(compare with <TH> in HTML). For example C<setCols(['Id','Nick','Name'])>.
-B<Note> that you cannot add Cols after you have added a row. You also cannot have multiline text as columnnames.
+B<Note> that you cannot add Cols after you have added a row. Multiline columnnames are allowed.
 
 =cut
 
 sub setCols {
   my $self = shift;
-  my $tmp = shift;
-  do { $self->reperror("setCols needs an array"); return 1; } unless defined($tmp);
-  my @cols = @{$tmp};
-  do { $self->reperror("setCols needs an array"); return 1; } unless scalar(@cols) != 0;
+  do { $self->reperror("setCols needs an array"); return 1; } unless defined($_[0]);
+  @_ = @{$_[0]} if (ref($_[0]) eq 'ARRAY');
+  do { $self->reperror("setCols needs an array"); return 1; } unless scalar(@_) != 0;
   do { $self->reperror("Cannot edit cols at this state"); return 1; } unless scalar(@{$self->{tbl_rows}}) == 0;
-  @{$self->{tbl_cols}} = @cols;
+
+  my @lines = map { [ split(/\n/,$_) ] } @_;
+
+	# Multiline support
+  my $max=0;
+	my @out;
+  foreach (@lines) {
+    $max = scalar(@{$_}) if scalar(@{$_}) > $max;
+  }
+  foreach my $num (0..($max-1)) {
+    my @tmp;
+    foreach (@lines) {
+      push @tmp,@{$_}[$num] || '';
+    }
+    push @out, [ @tmp ];
+  }
+
+  @{$self->{tbl_cols}} = @_;
+	@{$self->{tbl_multilinecols}} = @out if ($max);
+  $self->{tbl_colsismultiline} = $max;
+
   return undef;
 }
 
-=head2 addCol($col)
-
-Add a column to the columnlist. This still can't be done after you have added a row.
-
-=cut
-
-sub addCol {
-  my ($self,$col) = @_;
-  do { $self->reperror("addCol needs a string"); return 1; } unless defined($col);
-  do { $self->reperror("Cannot add cols at this state"); return 1; } if (scalar(@{$self->{tbl_rows}}) != 0);
-  push @{$self->{tbl_cols}},$col;
-  return undef;
-}
+# This part was removed due to incompatibilty with multiline and the lack of use.
+#
+#
+#=head2 addCol($col)
+#
+#Add a column to the columnlist. This still can't be done after you have added a row.
+#
+#=cut
+#
+#sub addCol {
+#  my ($self,$col) = @_;
+#  do { $self->reperror("addCol needs a string"); return 1; } unless defined($col);
+#  do { $self->reperror("Cannot add cols at this state"); return 1; } if (scalar(@{$self->{tbl_rows}}) != 0);
+#  push @{$self->{tbl_cols}},$col;
+#  return undef;
+#}
 
 =head2 addRow(@collist)
 
 Adds one row to the table. This must be an array of strings. If you defined 3 columns. This array must
 have 3 items in it. And so on. Should be self explanatory. The strings can contain newlines.
 
+  Note: It does not require argument to be an array, thus;
+  $t->addRow(['id','name']) or $t->addRow('id','name') does the same thing.
+
 =cut
 
 sub addRow {
   my $self = shift;
+  @_ = @{$_[0]} if (ref($_[0]) eq 'ARRAY');
   do { $self->reperror("Received too few columns"); return 1; } if scalar(@_) < scalar(@{$self->{tbl_cols}});
   do { $self->reperror("Received too many columns"); return 1; } if scalar(@_) > scalar(@{$self->{tbl_cols}});
   my (@in,@out,@lines,$max);
@@ -125,7 +152,7 @@ sub addRow {
   foreach my $num (0..($max-1)) {
     my @tmp;
     foreach (@lines) {
-      push @tmp,iif(@{$_}[$num],'');
+      push @tmp,@{$_}[$num] || '';
     }
     push @out, [ @tmp ];
   }
@@ -189,7 +216,7 @@ sub setColWidth {
 sub getColWidth {
   my ($self,$colname,$ignore) = @_;
   my $pos = &find($colname,$self->{tbl_cols});
-  my $maxsize = $self->count($colname);
+  #my $maxsize = $self->count($colname);
   my ($extra_for_all,$extrasome);
   my %extratbl;
   do { $self->reperror("Could not find '$colname' in columnlist"); return 1; } unless defined($pos);
@@ -215,8 +242,15 @@ sub getColWidth {
     }
   }
 
+  # multiline support in columnnames
+	my $maxsize=0;
+	my @tmp = split(/\n/,$colname);
+	foreach (@tmp) {
+		$maxsize = length($_) if length($_) > $maxsize;
+	}
+
   if ($self->{tbl_width_strict}{$colname} == 1 && int($self->{tbl_width}{$colname}) > 0) {
-    # maxsize pluss the spaces on each side
+    # maxsize plus the spaces on each side
     return $self->{tbl_width}{$colname} + 2 + (defined($extratbl{$colname}) ? $extratbl{$colname} : 0);
   } else {
     for my $row (@{$self->{tbl_rows}}) {
@@ -352,7 +386,7 @@ sub drawSingleColumnRow {
   }
   $contents .= ' '.$self->align(
                        $text,
-                       &iif($align,'left'),
+                       $align || 'left',
                        $width,
                        ($self->{options}{allowHTML} || $self->{options}{allowANSI}?0:1)
                    ).' ';
@@ -361,8 +395,8 @@ sub drawSingleColumnRow {
 sub drawRow {
   my ($self,$row,$isheader,$start,$stop,$delim) = @_;
   do { $self->reperror("Missing reqired parameters"); return 1; } unless defined($row);
-  $isheader = &iif($isheader,0);
-  $delim = &iif($delim,'|');
+  $isheader = $isheader || 0;
+  $delim = $delim || '|';
 
   my $contents = $start;
   for (my $i=0;$i<scalar(@{$row});$i++) {
@@ -371,11 +405,12 @@ sub drawRow {
     if ($isheader != 1 && defined($self->{tbl_align}{@{$self->{tbl_cols}}[$i]})) {
       $contents .= ' '.$self->align(
                          $text,
-                         &iif($self->{tbl_align}{@{$self->{tbl_cols}}[$i]},'left'),
+                         $self->{tbl_align}{@{$self->{tbl_cols}}[$i]} || 'left',
                          $self->getColWidth(@{$self->{tbl_cols}}[$i])-2,
                          ($self->{options}{allowHTML} || $self->{options}{allowANSI}?0:1)
                        ).' ';
     } elsif ($isheader == 1) {
+
       $contents .= ' '.$self->align(
                          $text,
                          $self->{options}{alignHeadRow},
@@ -513,9 +548,11 @@ With Options:
 
 =cut
 
+sub drawit {scalar shift()->draw()}
+
 sub draw {
   my $self = shift;
-  my ($top,$toprow,$middle,$middlerow,$bottom,$rowline) = @_;
+	my ($top,$toprow,$middle,$middlerow,$bottom,$rowline) = @_;
   my ($tstart,$tstop,$tline,$tdelim) = defined($top) ? @{$top} : undef;
   my ($trstart,$trstop,$trdelim) = defined($toprow) ? @{$toprow} : undef;
   my ($mstart,$mstop,$mline,$mdelim) = defined($middle) ? @{$middle} : undef;
@@ -524,23 +561,25 @@ sub draw {
   my ($rstart,$rstop,$rline,$rdelim) = defined($rowline) ? @{$rowline} : undef;
   my $contents="";
 
+  $contents .= $self->drawLine($tstart || '.=',$tstop || '=.',$tline,$tline) unless $self->{options}{hide_FirstLine};
   if (defined($self->{options}{headingText})) {
-    $contents .= $self->drawLine(&iif($tstart,'.'),&iif($tstop,'.'),$tline,$tline) unless $self->{options}{hide_FirstLine};
-    $contents .= $self->drawSingleColumnRow($self->{options}{headingText},&iif($self->{options}{headingStartChar},'|'),&iif($self->{options}{headingStopChar},'|'),&iif($self->{options}{headingAlign},'center'),'title');
-    $contents .= $self->drawLine(&iif($mstart,' >'),&iif($mstop,'< '),$mline,$mdelim) unless $self->{options}{hide_HeadLine};
+    $contents .= $self->drawSingleColumnRow($self->{options}{headingText},$self->{options}{headingStartChar} || '|',$self->{options}{headingStopChar} || '|',$self->{options}{headingAlign} || 'center','title');
+    $contents .= $self->drawLine($mstart || '|=',$mstop || '=|',$mline,$mdelim) unless $self->{options}{hide_HeadLine};
   }
-  else {
-    $contents .= $self->drawLine(&iif($tstart,'.'),&iif($tstop,'.'),$tline,$tdelim) unless ($self->{options}{hide_FirstLine} && !defined($self->{options}{headingText}));
-  }
-  $contents .= $self->drawRow($self->{tbl_cols},1,&iif($trstart,'|'),&iif($trstop,'|'),&iif($trdelim,'|')) unless $self->{options}{hide_HeadRow};
-  $contents .= $self->drawLine(&iif($mstart,' >'),&iif($mstop,'< '),$mline,$mdelim) unless $self->{options}{hide_HeadLine};
+  unless ($self->{options}{hide_HeadRow}) {
+		# multiline-column-support
+		foreach my $row (@{$self->{tbl_multilinecols}}) {
+			$contents .= $self->drawRow($row,1,$trstart || '|',$trstop || '|',$trdelim || '|');
+		}
+	}
+  $contents .= $self->drawLine($mstart || '|=',$mstop || '=|',$mline,$mdelim) unless $self->{options}{hide_HeadLine};
   my $i=0;
   for (@{$self->{tbl_rows}}) {
     $i++;
-    $contents .= $self->drawRow($_,0,&iif($mrstart,'|'),&iif($mrstop,'|'),&iif($mrdelim,'|'));
-    $contents .= $self->drawLine(&iif($rstart,'|'),&iif($rstop,'|'),$rline,$rdelim) if ($self->{options}{drawRowLine} && $self->{tbl_rowline}{$i} && ($i != scalar(@{$self->{tbl_rows}})));
+    $contents .= $self->drawRow($_,0,$mrstart || '|',$mrstop || '|',$mrdelim || '|');
+    $contents .= $self->drawLine($rstart || '|',$rstop || '|',$rline,$rdelim) if ($self->{options}{drawRowLine} && $self->{tbl_rowline}{$i} && ($i != scalar(@{$self->{tbl_rows}})));
   }
-  $contents .= $self->drawLine(&iif($bstart,"'"),&iif($bstop,"'"),$bline,$bdelim) unless $self->{options}{hide_LastLine};
+  $contents .= $self->drawLine($bstart || "'=",$bstop || "='",$bline,$bdelim) unless $self->{options}{hide_LastLine};
   #use Data::Dumper;
   return $contents;#."\n".Dumper([$self]);
 }
@@ -550,18 +589,10 @@ sub draw {
 # Replaces length() because of optional HTML and ANSI stripping
 sub count {
   my $self = shift;
-  my $moo = shift;
-  if ($self->{options}{allowHTML}) {
-    $moo =~ s/<.+?>//g;
-    return length($moo);
-  }
-  elsif ($self->{options}{allowANSI}) {
-    $moo =~ s/\33\[(\d+(;\d+)?)?m//g;
-    return length($moo);
-  }
-  else {
-    return length($moo);
-  }
+  my $str = shift;
+  $str =~ s/<.+?>//g if $self->{options}{allowHTML};
+  $str =~ s/\33\[(\d+(;\d+)?)?m//g if $self->{options}{allowANSI};
+	return length($str);
 }
 
 sub align {
@@ -591,9 +622,7 @@ sub reperror {
   my $self = shift;
   print STDERR Carp::shortmess(shift) if $self->{options}{reportErrors};
 }
-sub iif {
-  return defined($_[0]) ? $_[0] : $_[1];
-}
+
 # Couldn't find a better way to search in an array, than to make this function. Please tell me the right way..
 sub find {
   return undef unless defined $_[1];
@@ -672,7 +701,7 @@ Do you want to know when new versions are out, etc? Go to http://files.loopback.
 
 =head1 VERSION
 
-Current version is 0.10.
+Current version is 0.11.
 
 =head1 COPYRIGHT
 

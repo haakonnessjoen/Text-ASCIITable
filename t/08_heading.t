@@ -1,6 +1,6 @@
 #!/usr/bin/perl
 
-BEGIN { $| = 1; print "1..8\n"; }
+BEGIN { $| = 1; print "1..7\n"; }
 END {print "not ok 1\n" unless $loaded;}
 use Text::ASCIITable;
 $loaded = 1;
@@ -10,8 +10,7 @@ $i++;
 $t = new Text::ASCIITable;
 $t->setOptions('headingText','This is a title is too long, so it should expand the table');
 $t->setOptions('headingAlign','right');
-ok($t->setCols(['id','nick']));
-ok($t->addCol('name'));
+ok($t->setCols(['id','nick','name']));
 ok($t->alignColRight('id'));
 ok($t->alignColRight('nick'));
 ok($t->addRow(1,'Lunatic-|','Håkon Nessjøen'));

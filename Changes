@@ -1,5 +1,11 @@
 Revision history for Perl extension Text::ASCIITable.
 
+0.11	Sat	Aug	16 16:33:42 2003
+	- Added easier access to printing. You can now use print $t; which
+		does the same as print $t->draw() do.
+	- Changed the default look/"theme". It was just too ugly :P
+	- Added multiline support for columnnames.
+	- Cleaned up some code.
 
 0.10  Sat Mar 22 15:44:12 2003
 	- Fixed so headingText makes the table wider, if its wider than the

@@ -1,0 +1,10 @@
+#XXXXXXX This is a prototype!!!  It will change in the future!!! XXXXX#
+name:         Text-ASCIITable
+version:      0.11
+version_from: ASCIITable.pm
+installdirs:  site
+requires:
+    Text::Wrap:                    2001.0131
+
+distribution_type: module
+generated_by: ExtUtils::MakeMaker version 6.13

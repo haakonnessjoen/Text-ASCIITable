@@ -19,7 +19,6 @@ SYNOPSIS
 
 FUNCTIONS
   new(options)
-
     Initialize a new table. You can specify output-options. For more
     options, check out the usage for setOptions(name,value)
 
@@ -30,24 +29,19 @@ FUNCTIONS
       $t = new Text::ASCIITable({ hide_Lastline => 1, reportErrors => 0});
 
   setCols(@cols)
-
     Define the columns for the table(compare with <TH> in HTML). For example
     "setCols(['Id','Nick','Name'])". Note that you cannot add Cols after you
-    have added a row. You also cannot have multiline text as columnnames.
-
-  addCol($col)
-
-    Add a column to the columnlist. This still can't be done after you have
-    added a row.
+    have added a row. Multiline columnnames are allowed.
 
   addRow(@collist)
-
     Adds one row to the table. This must be an array of strings. If you
     defined 3 columns. This array must have 3 items in it. And so on. Should
     be self explanatory. The strings can contain newlines.
 
-  alignCol($col,$direction)
+      Note: It does not require argument to be an array, thus;
+      $t->addRow(['id','name']) or $t->addRow('id','name') does the same thing.
 
+  alignCol($col,$direction)
     Given a columnname, it aligns all data to the given direction in the
     table. This looks nice on numerical displays in a column. The column
     names in the table will not be unaffected by the alignment. Possible
@@ -55,7 +49,6 @@ FUNCTIONS
     align numbers to the right, and text to the left.)
 
   setColWidth($col,$width,$strict)
-
     Wordwrapping/strict size. Set a max-width(in chars) for a column. If
     last parameter is 1, the column will be set to the specified width.
 
@@ -63,12 +56,10 @@ FUNCTIONS
       $t->setColWidth('Description',30);
 
   getTableWidth()
-
     If you need to know how wide your table will be before you draw it. Use
     this function.
 
   setOptions(name,value)
-
     Use this to set options like: hide_FirstLine,reportErrors, etc.
 
       $t->setOptions('hide_HeadLine',1);
@@ -126,14 +117,13 @@ FUNCTIONS
         reading about the draw() function.
 
   draw([@topdesign,@toprow,@middle,@middlerow,@bottom,@rowline])
-
     All the arrays containing the layout is optional. If you want to make
     your own "design" to the table, you can do that by giving this method
     these arrays containing information about which characters to use where.
 
     Custom tables
 
-    The draw method takes "6" arrays of strings to define the layout. The
+    The draw method takes 6 arrays of strings to define the layout. The
     first, third, fifth and sixth is LINE layout and the second and fourth
     is ROW layout. The "fourth" parameter is repeated for each row in the
     table. The sixth parameter is only used if drawRowLine is enabled.
@@ -141,7 +131,7 @@ FUNCTIONS
      $t->draw(<LINE>,<ROW>,<LINE>,<ROW>,<LINE>,[<ROWLINE>])
 
     LINE
-        Takes an array of "4" strings. For example "['|','|','-','+']"
+        Takes an array of 4 strings. For example "['|','|','-','+']"
 
         *   LEFT - Defines the left chars. May be more than one char.
 
@@ -153,10 +143,10 @@ FUNCTIONS
         *   DELIMETER - Defines the char used for the delimeters. Must be
             only one char.
 
-    ROW Takes an array of "3" strings. You should not give more than one
-        char to any of these parameters, if you do.. it will probably
-        destroy the output.. Unless you do it with the knowledge of how it
-        will end up. An example: "['|','|','+']"
+    ROW Takes an array of 3 strings. You should not give more than one char
+        to any of these parameters, if you do.. it will probably destroy the
+        output.. Unless you do it with the knowledge of how it will end up.
+        An example: "['|','|','+']"
 
         *   LEFT - Define the char used for the left side of the table.
 
@@ -271,7 +261,7 @@ UPDATING
     http://files.loopback.no/ASCIITable/
 
 VERSION
-    Current version is 0.10.
+    Current version is 0.11.
 
 COPYRIGHT
     Copyright 2002-2003 by Håkon Nessjøen. All rights reserved. This module

@@ -1,6 +1,6 @@
 #!/usr/bin/perl
 
-BEGIN { $| = 1; print "1..8\n"; }
+BEGIN { $| = 1; print "1..7\n"; }
 END {print "not ok 1\n" unless $loaded;}
 use Text::ASCIITable;
 $loaded = 1;
@@ -8,8 +8,7 @@ $i=1;
 print "ok $i\n";
 $i++;
 $t = new Text::ASCIITable;
-ok($t->setCols(['id','nick']));
-ok($t->addCol('name'));
+ok($t->setCols(['id','nick','name']));
 ok($t->alignColRight('id'));
 ok($t->alignColRight('nick'));
 ok($t->addRow(1,'Lunatic-|','Håkon Nessjøen'));
@@ -22,11 +21,12 @@ eval {
 if (!$@) {
   print "ok ".$i."\n"
 } else {
+	print STDERR $@;
   print "not ok ".$i."\n";
 }
 $i++;
 my @arr = split(/\n/,$content);
-if (length(@arr[0]) == $t->getTableWidth()) {
+if (length($arr[0]) == $t->getTableWidth()) {
   print "ok ".$i."\n";
 } else {
   print "not ".$i."\n";

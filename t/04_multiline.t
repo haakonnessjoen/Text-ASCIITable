@@ -8,7 +8,7 @@ print "ok 1\n";
 $i=2;
 
 $t = new Text::ASCIITable;
-ok($t->setCols(['Name','Description','Amount']));
+ok($t->setCols(['Name',"Description\n(small)",'Amount']));
 ok($t->addRow('Apple',"A fruit.\n(very tasty!)",4));
 ok($t->alignCol('Amount','right'));
 $t->addRow('Milk',"You get it from the cows,\nor the nearest shop.","2\n(L)");
@@ -26,5 +26,5 @@ for(@arr) {
 }
 ok($err);
 
-if (scalar(@arr) == 9) {ok(undef);} else {ok(1);}
+if (scalar(@arr) == 10) {ok(undef);} else {ok(1);}
 sub ok{print(defined(shift)?"not ok $i\n":"ok $i\n");$i++;}
