@@ -16,43 +16,84 @@ SYNOPSIS
       print $t->draw(); 
   
 FUNCTIONS
+  new(options)
+
+    Initialize a new table. You can specify output-options. For more
+    options, check out the usage for setOptions(name,value)
+
+      Usage:
+      $t = new Text::ASCIITable;
+  
+      Or with options:
+      $t = new Text::ASCIITable({ hide_Lastline => 1, reportErrors => 0});
+
   setCols(@cols)
+
     Define the columns for the table(compare with <TH> in HTML). For example
     "setCols(['Id','Nick','Name'])". Note that you cannot add Cols after you
     have added a row.
 
   addCol($col)
+
     Add a column to the columnlist. This still can't be done after you have
     added a row.
 
   addRow(@collist)
+
     Adds one row to the table. This must be an array of strings. If you
     defined 3 columns. This array must have 3 items in it. And so on. Should
-    be self explanatory.
+    be self explanatory. The strings can contain newlines.
 
-  alignColRight($col)
-    Given a columnname, it aligns all data to the right in the table. This
-    looks nice on numerical displays in a column. The column names in the
-    table will not be unaffected by the alignment.
+  alignCol($col,$direction)
+
+    Given a columnname, it aligns all data to the given direction in the
+    table. This looks nice on numerical displays in a column. The column
+    names in the table will not be unaffected by the alignment. Possible
+    directions is: left, center and right. (Hint: It is often very useful to
+    align numbers to the right, and text to the left.)
+
+  setColWidth($col,$width)
+
+    Wordwrapping. Set a max-width(in chars) for a column.
+
+     Usage:
+      $t->setColWidth('Description',30);
 
   getTableWidth()
+
     If you need to know how wide your table will be before you draw it. Use
     this function.
 
+  setOptions(name,value)
+
+    Use this to set options like:
+    hide_FirstLine,hide_HeadLine,hide_HeadRow,hide_LastLine,reportErrors,all
+    owHTML or alignHeadRow.
+
+      $t->setOptions('hide_HeadLine',1);
+
+    When allowHTML is set to 1, it makes it possible to use this table in a
+    HTML page where you want links/colors on the text inside the table. You
+    can then use <B>hello</B> inside a row/columnname without the
+    table-width to break apart. When using Text::ASCIITable on webpages,
+    remember to use <PRE> before and after the output of this table.
+
   draw([@topdesign,@toprow,@middle,@middlerow,@bottom])
+
     All the arrays containing the layout is optional. If you want to make
     your own "design" to the table, you can do that by giving this method
     these arrays containing information about which characters to use where.
 
    Custom tables
-    The draw method takes 5 arrays of strings to define the layout. The
+
+    The draw method takes "5" arrays of strings to define the layout. The
     first, third and fifth is LINE layout and the second and fourth is ROW
     layout. The "fourth" parameter is repeated for each row in the table.
 
      $t->draw(<LINE>,<ROW>,<LINE>,<ROW>,<LINE>)
 
     LINE
-        Takes an array of 4 strings. For example "['|','|','-','+']"
+        Takes an array of "4" strings. For example "['|','|','-','+']"
 
         *   LEFT - Defines the left chars. May be more than one char.
 
@@ -64,10 +105,10 @@ FUNCTIONS
         *   DELIMETER - Defines the char used for the delimeters. Must be
             only one char.
 
-    ROW Takes an array of 3 strings. You should not give more than one char
-        to any of these parameters, if you do.. it will probably destroy the
-        output.. Unless you do it with the knowledge of how it will end up.
-        An example: "['|','|','+']"
+    ROW Takes an array of "3" strings. You should not give more than one
+        char to any of these parameters, if you do.. it will probably
+        destroy the output.. Unless you do it with the knowledge of how it
+        will end up. An example: "['|','|','+']"
 
         *   LEFT - Define the char used for the left side of the table.
 
@@ -109,10 +150,13 @@ FUNCTIONS
               ));
 
 REQUIRES
-    Exporter, Carp
+    Exporter, Carp, Text::Wrap
 
 AUTHOR
     Håkon Nessjøen, lunatic@skonux.net
+
+VERSION
+    Current version is 0.07.
 
 COPYRIGHT
     Copyright 2002-2003 by Håkon Nessjøen. All rights reserved. This module

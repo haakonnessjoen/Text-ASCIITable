@@ -1,5 +1,12 @@
 Revision history for Perl extension Text::ASCIITable.
 
+0.07  Tue Jan 14 12:45:03 2003
+	- Stopped to use Text::Aligner, because I needed one
+	  with the possibillity to change strictness of the function
+	  and counting procedures. Made my own easy align function.
+	- Added allowHTML option. To do this i needed to stop using
+	  Text::Aligner.
+
 0.06  Sat Jan 11 17:41:32 2003
 	- Went over to use Text::Aligner instead of own functions.
 	- Added alignCol. (Which uses Text::Aligner)

@@ -1,14 +1,15 @@
 package Text::ASCIITable;
 # by Håkon Nessjøen <lunatic@skonux.net>
 
+# BETA VERSION
+
 @ISA=qw(Exporter);
 @EXPORT = qw();
 @EXPORT_OK = qw();
-$VERSION = '0.06';
+$VERSION = '0.07';
 use Exporter;
 use strict;
 use Carp;
-use Text::Aligner;
 
 # Determine if Text::Wrap is installed
 my $hasWrap;
@@ -50,7 +51,8 @@ Initialize a new table. You can specify output-options. For more options, check 
 
 sub new {
   my $self = {tbl_cols => [],tbl_rows => [],tbl_align => {},options => $_[1] || { }};
-  $self->{options}{reportErrors} = 1; # default setting
+  $self->{options}{reportErrors} = iif($self->{options}{reportErrors},1); # default setting
+  $self->{options}{alignHeadRow} = iif($self->{options}{alignHeadRow},'left'); # default setting
   bless $self;
   return $self;
 }
@@ -106,15 +108,16 @@ sub addRow {
       my $width = $self->{tbl_width}{@{$self->{tbl_cols}}[$c]};
       if ($width) {
         $Text::Wrap::columns = $width;
-        @in[$c] = wrap('', '', @_[$c]);
+        $in[$c] = wrap('', '', $_[$c]);
       } else {
-        @in[$c] = @_[$c];
+        $in[$c] = $_[$c];
       }
     }
   } else { @in = @_; }
 
   # Multiline support:
   @lines = map { [ split(/\n/,$_) ] } @in;
+  $max=0;
   foreach (@lines) {
     $max = scalar(@{$_}) if scalar(@{$_}) > $max;
   }
@@ -180,11 +183,11 @@ sub setColWidth {
 sub getColWidth {
   my ($self,$colname) = @_;
   my $pos = &find($colname,$self->{tbl_cols});
-  my $maxsize = length($colname);
+  my $maxsize = $self->count($colname);
 
   do { $self->reperror("Could not find '$colname' in columnlist"); return 1; } unless defined($pos);
   for my $row (@{$self->{tbl_rows}}) {
-    $maxsize = length(@{$row}[$pos]) if (length(@{$row}[$pos]) > $maxsize);
+    $maxsize = $self->count(@{$row}[$pos]) if ($self->count(@{$row}[$pos]) > $maxsize);
   }
 
   # maxsize pluss the spaces on each side
@@ -230,9 +233,13 @@ sub drawLine {
 
 =head2 setOptions(name,value)
 
-Use this to set options like: hide_FirstLine,hide_HeadLine,hide_HeadRow,hide_LastLine.
+Use this to set options like: hide_FirstLine,hide_HeadLine,hide_HeadRow,hide_LastLine,reportErrors,allowHTML or alignHeadRow.
 
   $t->setOptions('hide_HeadLine',1);
+
+When B<allowHTML> is set to 1, it makes it possible to use this table in a HTML page where you want links/colors on the 
+text inside the table. You can then use <B>hello</B> inside a row/columnname without the table-width to break apart.
+When using Text::ASCIITable on webpages, remember to use <PRE> before and after the output of this table.
 
 =cut
 
@@ -244,23 +251,36 @@ sub setOptions {
 }
 
 sub drawRow {
-  my ($self,$row,$allowalign,$start,$stop,$delim) = @_;
+  my ($self,$row,$isheader,$start,$stop,$delim) = @_;
   do { $self->reperror("Missing reqired parameters"); return 1; } unless defined($row);
-  $allowalign = &iif($allowalign,1);
+  $isheader = &iif($isheader,0);
   $delim = &iif($delim,'|');
 
   my $contents = $start;
   for (my $i=0;$i<scalar(@{$row});$i++) {
     my $text = @{$row}[$i];
 
-    if ($allowalign == 1 && defined($self->{tbl_align}{@{$self->{tbl_cols}}[$i]})) {
-      my $align = Text::Aligner->new(&iif($self->{tbl_align}{@{$self->{tbl_cols}}[$i]},'left'));
-      $align->alloc('-' x ($self->getColWidth(@{$self->{tbl_cols}}[$i]) - 2));
-      $contents .= ' '.$align->justify($text).' ';
+    if ($isheader != 1 && defined($self->{tbl_align}{@{$self->{tbl_cols}}[$i]})) {
+      $contents .= ' '.$self->align(
+                         $text,
+                         &iif($self->{tbl_align}{@{$self->{tbl_cols}}[$i]},'left'),
+                         $self->getColWidth(@{$self->{tbl_cols}}[$i])-2,
+                         ($self->{options}{allowHTML}?0:1)
+                       ).' ';
+    } elsif ($isheader == 1) {
+      $contents .= ' '.$self->align(
+                         $text,
+                         $self->{options}{alignHeadRow},
+                         $self->getColWidth(@{$self->{tbl_cols}}[$i])-2,
+                         ($self->{options}{allowHTML}?0:1)
+                       ).' ';
     } else {
-      my $align = Text::Aligner->new('left');
-      $align->alloc('-' x ($self->getColWidth(@{$self->{tbl_cols}}[$i]) - 2));
-      $contents .= ' '.$align->justify($text).' ';
+      $contents .= ' '.$self->align(
+                         $text,
+                         'left',
+                         $self->getColWidth(@{$self->{tbl_cols}}[$i])-2,
+                         ($self->{options}{allowHTML}?0:1)
+                       ).' ';
     }
     $contents .= $delim if ($i != scalar(@{$row}) - 1);
   }
@@ -375,16 +395,52 @@ sub draw {
   my ($bstart,$bstop,$bline,$bdelim) = defined($bottom) ? @{$bottom} : undef;
   my $contents="";
   $contents .= $self->drawLine(&iif($tstart,'.'),&iif($tstop,'.'),$tline,$tdelim) unless $self->{options}{hide_FirstLine};
-  $contents .= $self->drawRow($self->{tbl_cols},0,&iif($trstart,'|'),&iif($trstop,'|'),&iif($trdelim,'|')) unless $self->{options}{hide_HeadRow};
+  $contents .= $self->drawRow($self->{tbl_cols},1,&iif($trstart,'|'),&iif($trstop,'|'),&iif($trdelim,'|')) unless $self->{options}{hide_HeadRow};
   $contents .= $self->drawLine(&iif($mstart,' >'),&iif($mstop,'< '),$mline,$mdelim) unless $self->{options}{hide_HeadLine};
   for (@{$self->{tbl_rows}}) {
-    $contents .= $self->drawRow($_,1,&iif($mrstart,'|'),&iif($mrstop,'|'),&iif($mrdelim,'|'));
+    $contents .= $self->drawRow($_,0,&iif($mrstart,'|'),&iif($mrstop,'|'),&iif($mrdelim,'|'));
   }
   $contents .= $self->drawLine(&iif($bstart,"'"),&iif($bstop,"'"),$bline,$bdelim) unless $self->{options}{hide_LastLine};
   return $contents;
 }
 
 # nifty subs
+
+# Replaces length() because of optional HTML stripping
+sub count {
+  my $self = shift;
+  my $moo = shift;
+  if ($self->{options}{allowHTML}) {
+    $moo =~ s/<.+?>//g;
+    return length($moo);
+  }
+  else {
+    return length($moo);
+  }
+}
+
+sub align {
+
+  my ($self,$text,$dir,$length,$strict) = @_;
+
+  if ($dir eq "right") {
+    $text = (" " x ($length - $self->count($text))).$text;
+    return substr($text,0,$length) if ($strict);
+    return $text;
+  } elsif ($dir eq "left") {
+    $text = $text.(" " x ($length - $self->count($text)));
+    return substr($text,0,$length) if ($strict);
+    return $text;
+  } elsif ($dir =~ /center/i) {
+    my $left = ( $length - $self->count($text) ) / 2;
+    # Someone tell me if this is matematecally totally wrong. :P
+    $left = int($left) + 1 if ($left ne int($left) && $left > 0.4);
+    my $right = int(( $length - $self->count($text) ) / 2);
+    $text = (" " x $left).$text.(" " x $right);
+    return substr($text,0,$length) if ($strict);
+    return $text;
+  }
+}
 
 sub reperror {
   my $self = shift;
@@ -409,11 +465,15 @@ __END__
 
 =head1 REQUIRES
 
-Exporter, Carp, Text::Aligner, Text::Wrap
+Exporter, Carp, Text::Wrap
 
 =head1 AUTHOR
 
 Håkon Nessjøen, lunatic@skonux.net
+
+=head1 VERSION
+
+Current version is 0.07.
 
 =head1 COPYRIGHT
 
@@ -423,3 +483,4 @@ This module is free software;
 you can redistribute it and/or modify it under the same terms as Perl itself.
 
 =cut
+

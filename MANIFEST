@@ -8,3 +8,5 @@ t/02_custom.t
 t/03_options.t
 t/04_multiline.t
 t/05_wordwrap.t
+t/06_htmlstrip.t
+t/07_aligning.t
