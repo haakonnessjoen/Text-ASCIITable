@@ -6,7 +6,7 @@ package Text::ASCIITable;
 @ISA=qw(Exporter);
 @EXPORT = qw();
 @EXPORT_OK = qw();
-$VERSION = '0.08';
+$VERSION = '0.09';
 use Exporter;
 use strict;
 use Carp;
@@ -18,8 +18,8 @@ else { $hasWrap=0; }
 
 =head1 NAME
 
-Text::ASCIITable - Create a nice formatted table using ASCII characters. Nice, if you want to output dynamic
-text to your console or other fixed-size displays.
+Text::ASCIITable - Create a nice formatted table using ASCII characters. Preatty nifty if you want to output dynamic
+text to your console or other fixed-size displays, and at the same time display it in a nice readable, or "cool" way.
 
 =head1 SYNOPSIS
 
@@ -250,6 +250,56 @@ When B<allowHTML> is set to 1, it makes it possible to use this table in a HTML 
 text inside the table. You can then use <B>hello</B> inside a row/columnname without the table-width to break apart.
 When using Text::ASCIITable on webpages, remember to use <PRE> before and after the output of this table.
 
+B<Possible Options>
+
+=over 4
+
+=item hide_HeadRow
+
+Hides output of the columnlisting. Together with hide_HeadLine, this makes a table only show the rows. (However, even though
+the column-names will not be shown, they will affect the output if they have for example ridiculoustly long
+names, and the rows contains small amount of info. You would end up with a lot of whitespace)
+
+=item reportErrors
+
+Set to 0 to disable error reporting. Though if a function encounters an error, it will still return the value 1, to
+tell you that things didn't go exactly as they should.
+
+=item allowHTML
+
+If you are going to use Text::ASCIITable to be shown on HTML pages, you should set this option to 1 when you are going
+to use HTML tags inside the rows, and you want the browser to handle the table correct.
+
+=item alignHeadRow
+
+Set wich direction the Column-names(in the headrow) are supposed to point. Must be left, right or center.
+
+=item hide_FirstLine, hide_HeadLine, hide_LastLine
+
+Speaks for it self?
+
+=item drawRowLine
+
+Set this to 1 to print a line between each row. You can also define the outputstyle
+of this line in the draw() function.
+
+=item headingText
+
+Add a heading above the columnnames/rows wich uses the whole width of the table to output
+a heading/title to the table. The heading-part of the table is automaticly shown when
+headingText contains the chosen heading.
+
+=item headingAlign
+
+Align the heading(as mentioned above) to left, right or center.
+
+=item headingStartChar, headingStopChar
+
+Choose the startingchar and endingchar of the row where the title is. The default is
+'|' on both. If you didn't understand this, try reading about the draw() function.
+
+=back
+
 =cut
 
 sub setOptions {
@@ -259,6 +309,19 @@ sub setOptions {
   return $old;
 }
 
+sub drawSingleColumnRow {
+  my ($self,$text,$start,$stop,$align) = @_;
+  do { $self->reperror("Missing reqired parameters"); return 1; } unless defined($text);
+
+  my $contents = $start;
+  $contents .= ' '.$self->align(
+                       $text,
+                       &iif($align,'left'),
+                       ($self->getTableWidth() - 4),
+                       ($self->{options}{allowHTML}?0:1)
+                   ).' ';
+  return $contents.$stop."\n";
+}
 sub drawRow {
   my ($self,$row,$isheader,$start,$stop,$delim) = @_;
   do { $self->reperror("Missing reqired parameters"); return 1; } unless defined($row);
@@ -302,7 +365,7 @@ All the arrays containing the layout is optional. If you want to make your own "
 can do that by giving this method these arrays containing information about which characters to use
 where.
 
-=head3 Custom tables
+B<Custom tables>
 
 The draw method takes C<6> arrays of strings to define the layout. The first, third, fifth and sixth is B<LINE>
 layout and the second and fourth is B<ROW> layout. The C<fourth> parameter is repeated for each row in the table.
@@ -424,7 +487,15 @@ sub draw {
   my ($bstart,$bstop,$bline,$bdelim) = defined($bottom) ? @{$bottom} : undef;
   my ($rstart,$rstop,$rline,$rdelim) = defined($rowline) ? @{$rowline} : undef;
   my $contents="";
-  $contents .= $self->drawLine(&iif($tstart,'.'),&iif($tstop,'.'),$tline,$tdelim) unless $self->{options}{hide_FirstLine};
+
+  if (defined($self->{options}{headingText})) {
+    $contents .= $self->drawLine(&iif($tstart,'.'),&iif($tstop,'.'),$tline,$tline) unless $self->{options}{hide_FirstLine};
+    $contents .= $self->drawSingleColumnRow($self->{options}{headingText},&iif($self->{options}{headingStartChar},'|'),&iif($self->{options}{headingStopChar},'|'),&iif($self->{options}{headingAlign},'center'));
+    $contents .= $self->drawLine(&iif($mstart,' >'),&iif($mstop,'< '),$mline,$mdelim) unless $self->{options}{hide_HeadLine};
+  }
+  else {
+    $contents .= $self->drawLine(&iif($tstart,'.'),&iif($tstop,'.'),$tline,$tdelim) unless ($self->{options}{hide_FirstLine} && !defined($self->{options}{headingText}));
+  }
   $contents .= $self->drawRow($self->{tbl_cols},1,&iif($trstart,'|'),&iif($trstop,'|'),&iif($trdelim,'|')) unless $self->{options}{hide_HeadRow};
   $contents .= $self->drawLine(&iif($mstart,' >'),&iif($mstop,'< '),$mline,$mdelim) unless $self->{options}{hide_HeadLine};
   my $i=0;
@@ -507,7 +578,8 @@ of features included in Text::ASCIITable.
 =item Configurable layout
 
 You can easily alter how the table should look, in many ways. There are a few examples
-in the draw() section of this documentation.
+in the draw() section of this documentation. And you can remove parts of the layout
+or even add a heading-part to the table.
 
 =item Text Aligning
 
@@ -549,9 +621,13 @@ Exporter, Carp, Text::Wrap
 
 Håkon Nessjøen, lunatic@cpan.org
 
+=head1 UPDATING
+
+Do you want to know when new versions are out, etc? Go to http://files.loopback.no/ASCIITable/
+
 =head1 VERSION
 
-Current version is 0.08.
+Current version is 0.09.
 
 =head1 COPYRIGHT
 
@@ -559,6 +635,10 @@ Copyright 2002-2003 by Håkon Nessjøen.
 All rights reserved.
 This module is free software;
 you can redistribute it and/or modify it under the same terms as Perl itself.
+
+=head1 SEE ALSO
+
+Text::FormatTable, Text::Table
 
 =cut
 

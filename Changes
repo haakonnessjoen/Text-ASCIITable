@@ -1,5 +1,12 @@
 Revision history for Perl extension Text::ASCIITable.
 
+
+0.09  Sat Feb 15 12:24:42 2003
+	- Added HeadingText option, wich makes a Title on the top of
+	  the table, spanning all the columts to one large title.
+	- Added descriptions to all the possible options in the
+	  documentation.
+
 0.08  Sat Jan 18 14:44:21 2003
 	- Added drawRowLine option, to make it draw a line
 	  between every row.

@@ -1,11 +1,11 @@
 NAME
     Text::ASCIITable - Create a nice formatted table using ASCII characters.
-    Nice, if you want to output dynamic text to your console or other
-    fixed-size displays.
+    Preatty nifty if you want to output dynamic text to your console or
+    other fixed-size displays, and at the same time display it in a nice
+    readable, or "cool" way.
 
 SYNOPSIS
       use Text::ASCIITable;
-  
       $t = new Text::ASCIITable;
       $t->setCols(['Nickname','Name']);
       $t->addRow('Lunatic-|','Håkon Nessjøen');
@@ -14,7 +14,7 @@ SYNOPSIS
       $t->addRow('mamikk','Martin Mikkelsen');
       $t->addRow('p33r','Espen A. Jütte');
       print $t->draw(); 
-  
+
 FUNCTIONS
   new(options)
 
@@ -23,7 +23,7 @@ FUNCTIONS
 
       Usage:
       $t = new Text::ASCIITable;
-  
+
       Or with options:
       $t = new Text::ASCIITable({ hide_Lastline => 1, reportErrors => 0});
 
@@ -31,7 +31,7 @@ FUNCTIONS
 
     Define the columns for the table(compare with <TH> in HTML). For example
     "setCols(['Id','Nick','Name'])". Note that you cannot add Cols after you
-    have added a row.
+    have added a row. You also cannot have multiline text as columnnames.
 
   addCol($col)
 
@@ -52,9 +52,10 @@ FUNCTIONS
     directions is: left, center and right. (Hint: It is often very useful to
     align numbers to the right, and text to the left.)
 
-  setColWidth($col,$width)
+  setColWidth($col,$width,$strict)
 
-    Wordwrapping. Set a max-width(in chars) for a column.
+    Wordwrapping/strict size. Set a max-width(in chars) for a column. If
+    last parameter is 1, the column will be set to the specified width.
 
      Usage:
       $t->setColWidth('Description',30);
@@ -68,7 +69,7 @@ FUNCTIONS
 
     Use this to set options like:
     hide_FirstLine,hide_HeadLine,hide_HeadRow,hide_LastLine,reportErrors,all
-    owHTML or alignHeadRow.
+    owHTML,alignHeadRow or drawRowLine.
 
       $t->setOptions('hide_HeadLine',1);
 
@@ -78,19 +79,65 @@ FUNCTIONS
     table-width to break apart. When using Text::ASCIITable on webpages,
     remember to use <PRE> before and after the output of this table.
 
-  draw([@topdesign,@toprow,@middle,@middlerow,@bottom])
+    Possible Options
+
+    hide_HeadRow
+        Hides output of the columnlisting. Together with hide_HeadLine, this
+        makes a table only show the rows. (However, even though the
+        column-names will not be shown, they will affect the output if they
+        have for example ridiculoustly long names, and the rows contains
+        small amount of info. You would end up with a lot of whitespace)
+
+    reportErrors
+        Set to 0 to disable error reporting. Though if a function encounters
+        an error, it will still return the value 1, to tell you that things
+        didn't go exactly as they should.
+
+    allowHTML
+        If you are going to use Text::ASCIITable to be shown on HTML pages,
+        you should set this option to 1 when you are going to use HTML tags
+        inside the rows, and you want the browser to handle the table
+        correct.
+
+    alignHeadRow
+        Set wich direction the Column-names(in the headrow) are supposed to
+        point. Must be left, right or center.
+
+    hide_FirstLine, hide_HeadLine, hide_LastLine
+        Speaks for it self?
+
+    drawRowLine
+        Set this to 1 to print a line between each row. You can also define
+        the outputstyle of this line in the draw() function.
+
+    headingText
+        Add a heading above the columnnames/rows wich uses the whole width
+        of the table to output a heading/title to the table. The
+        heading-part of the table is automaticly shown when headingText
+        contains the chosen heading.
+
+    headingAlign
+        Align the heading(as mentioned above) to left, right or center.
+
+    headingStartChar, headingStopChar
+        Choose the startingchar and endingchar of the row where the title
+        is. The default is '|' on both. If you didn't understand this, try
+        reading about the draw() function.
+
+  draw([@topdesign,@toprow,@middle,@middlerow,@bottom,@rowline])
 
     All the arrays containing the layout is optional. If you want to make
     your own "design" to the table, you can do that by giving this method
     these arrays containing information about which characters to use where.
 
-   Custom tables
+    Custom tables
 
-    The draw method takes "5" arrays of strings to define the layout. The
-    first, third and fifth is LINE layout and the second and fourth is ROW
-    layout. The "fourth" parameter is repeated for each row in the table.
+    The draw method takes "6" arrays of strings to define the layout. The
+    first, third, fifth and sixth is LINE layout and the second and fourth
+    is ROW layout. The "fourth" parameter is repeated for each row in the
+    table. The sixth parameter is only used if drawRowLine is enabled.
 
-     $t->draw(<LINE>,<ROW>,<LINE>,<ROW>,<LINE>)
+     $t->draw(<LINE>,<ROW>,<LINE>,<ROW>,<LINE>,[<ROWLINE>])
 
     LINE
         Takes an array of "4" strings. For example "['|','|','-','+']"
@@ -138,7 +185,7 @@ FUNCTIONS
                ['|','|','-','-'],   # |-------------|
                ['|','|','|'],       # | info | info |
                [' \\','/ ','_','|'] #  \_____|_____/
-              ));
+              );
 
     Nice example2:
 
@@ -147,19 +194,85 @@ FUNCTIONS
                ['|=','=|','-','+'],   # |=-----+-----=|
                ['|','|','|'],         # | info | info |
                ["'=","='",'-','-']    # '=-----------='
-              ));
+              );
+
+    With Options:
+
+     $t->setOptions('drawRowLine',1);
+     $t->draw( ['.=','=.','-','-'],   # .=-----------=.
+               ['|','|','|'],         # | info | info |
+               ['|-','-|','=','='],   # |-===========-|
+               ['|','|','|'],         # | info | info |
+               ["'=","='",'-','-'],   # '=-----------='
+               ['|=','=|','-','+']    # rowseperator
+              );
+     Which makes this output:
+       .=-----------=.
+       | info | info |
+       |-===========-|
+       | info | info |
+       |=-----+-----=| <-- between each row
+       | info | info |
+       '=-----------='
+
+FEATURES
+    In case you need to know if this module has what you need, I have made
+    this list of features included in Text::ASCIITable.
+
+    Configurable layout
+        You can easily alter how the table should look, in many ways. There
+        are a few examples in the draw() section of this documentation. And
+        you can remove parts of the layout or even add a heading-part to the
+        table.
+
+    Text Aligning
+        Align the text in a column to the left, or right or center. Usually
+        you want to align text to right if you only have numbers in that
+        row.
+
+    Multiline support in rows
+        With the \n(ewline) character you can have rows use more than just
+        one line on the output. (This looks nice with the drawRowLine option
+        enabled)
+
+    Optional wordwrap support (using Text::Wrap)
+        If you have installed Text::Wrap, you will have the possibility to
+        use have rows not be wider than a set amount of characters. If a
+        line exceedes for example 30 characters, the line will be broken up
+        in several lines.
+
+    HTML support
+        If you put in <HTML> tags inside the rows, the output would usually
+        be broken when viewed in a browser, since the browser "execute" the
+        tags instead of displaying it. But if you enable allowHTML. You are
+        able to write html tags inside the rows without the output being
+        broken if you display it in a browser. But you should not mix this
+        with wordwrap, since this could make undesirable results.
+
+    Errorreporting
+        If you write a script in perl, and don't want users to be notified
+        of the errormessages from Text::ASCIITable. You can easily turn of
+        error reporting by setting reportErrors to 0. You will still get an
+        1 instead of undef returned from the function.
 
 REQUIRES
     Exporter, Carp, Text::Wrap
 
 AUTHOR
-    Håkon Nessjøen, lunatic@skonux.net
+    Håkon Nessjøen, lunatic@cpan.org
+
+UPDATING
+    Do you want to know when new versions are out, etc? Go to
+    http://files.loopback.no/ASCIITable/
 
 VERSION
-    Current version is 0.07.
+    Current version is 0.09.
 
 COPYRIGHT
     Copyright 2002-2003 by Håkon Nessjøen. All rights reserved. This module
     is free software; you can redistribute it and/or modify it under the
     same terms as Perl itself.
+
+SEE ALSO
+    Text::FormatTable, Text::Table
 
