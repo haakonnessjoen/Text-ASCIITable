@@ -1,12 +1,12 @@
 package Text::ASCIITable;
-# by Håkon Nessjøen <lunatic@skonux.net>
+# by Håkon Nessjøen <lunatic@cpan.org>
 
 # BETA VERSION
 
 @ISA=qw(Exporter);
 @EXPORT = qw();
 @EXPORT_OK = qw();
-$VERSION = '0.07';
+$VERSION = '0.08';
 use Exporter;
 use strict;
 use Carp;
@@ -24,7 +24,6 @@ text to your console or other fixed-size displays.
 =head1 SYNOPSIS
 
   use Text::ASCIITable;
-  
   $t = new Text::ASCIITable;
   $t->setCols(['Nickname','Name']);
   $t->addRow('Lunatic-|','Håkon Nessjøen');
@@ -33,7 +32,6 @@ text to your console or other fixed-size displays.
   $t->addRow('mamikk','Martin Mikkelsen');
   $t->addRow('p33r','Espen A. Jütte');
   print $t->draw(); 
-  
 
 =head1 FUNCTIONS
 
@@ -43,7 +41,7 @@ Initialize a new table. You can specify output-options. For more options, check 
 
   Usage:
   $t = new Text::ASCIITable;
-  
+
   Or with options:
   $t = new Text::ASCIITable({ hide_Lastline => 1, reportErrors => 0});
 
@@ -60,7 +58,7 @@ sub new {
 =head2 setCols(@cols)
 
 Define the columns for the table(compare with <TH> in HTML). For example C<setCols(['Id','Nick','Name'])>.
-B<Note> that you cannot add Cols after you have added a row.
+B<Note> that you cannot add Cols after you have added a row. You also cannot have multiline text as columnnames.
 
 =cut
 
@@ -132,6 +130,9 @@ sub addRow {
   # Add row(s)
   push @{$self->{tbl_rows}}, @out;
 
+  # Rowlinesupport:
+  $self->{tbl_rowline}{scalar(@{$self->{tbl_rows}})} = 1;
+
   return undef;
 }
 
@@ -159,9 +160,10 @@ sub alignCol {
   return undef;
 }
 
-=head2 setColWidth($col,$width)
+=head2 setColWidth($col,$width,$strict)
 
-Wordwrapping. Set a max-width(in chars) for a column.
+Wordwrapping/strict size. Set a max-width(in chars) for a column.
+If last parameter is 1, the column will be set to the specified width.
 
  Usage:
   $t->setColWidth('Description',30);
@@ -169,11 +171,12 @@ Wordwrapping. Set a max-width(in chars) for a column.
 =cut
 
 sub setColWidth {
-  my ($self,$col,$width) = @_;
+  my ($self,$col,$width,$strict) = @_;
   do { $self->reperror("setColWidth is missing parameter(s)"); return 1; } unless defined($col) && defined($width);
   do { $self->reperror("Could not find '$col' in columnlist"); return 1; } unless defined(&find($col,$self->{tbl_cols}));
   do { $self->reperror("Text::Wrap not installed. Please install from CPAN"); return 1; } unless $hasWrap;
   $self->{tbl_width}{$col} = int($width);
+  $self->{tbl_width_strict}{$col} = $strict ? 1 : 0;
 
   return undef;
 }
@@ -186,8 +189,13 @@ sub getColWidth {
   my $maxsize = $self->count($colname);
 
   do { $self->reperror("Could not find '$colname' in columnlist"); return 1; } unless defined($pos);
-  for my $row (@{$self->{tbl_rows}}) {
-    $maxsize = $self->count(@{$row}[$pos]) if ($self->count(@{$row}[$pos]) > $maxsize);
+  if ($self->{tbl_width_strict}{$colname} == 1 && int($self->{tbl_width}{$colname}) > 0) {
+    # maxsize pluss the spaces on each side
+    return $self->{tbl_width}{$colname} + 2;
+  } else {
+    for my $row (@{$self->{tbl_rows}}) {
+      $maxsize = $self->count(@{$row}[$pos]) if ($self->count(@{$row}[$pos]) > $maxsize);
+    }
   }
 
   # maxsize pluss the spaces on each side
@@ -233,7 +241,8 @@ sub drawLine {
 
 =head2 setOptions(name,value)
 
-Use this to set options like: hide_FirstLine,hide_HeadLine,hide_HeadRow,hide_LastLine,reportErrors,allowHTML or alignHeadRow.
+Use this to set options like: hide_FirstLine,hide_HeadLine,hide_HeadRow,hide_LastLine,reportErrors,allowHTML,alignHeadRow or
+drawRowLine.
 
   $t->setOptions('hide_HeadLine',1);
 
@@ -287,7 +296,7 @@ sub drawRow {
   return $contents.$stop."\n";
 }
 
-=head2 draw([@topdesign,@toprow,@middle,@middlerow,@bottom])
+=head2 draw([@topdesign,@toprow,@middle,@middlerow,@bottom,@rowline])
 
 All the arrays containing the layout is optional. If you want to make your own "design" to the table, you
 can do that by giving this method these arrays containing information about which characters to use
@@ -295,10 +304,11 @@ where.
 
 =head3 Custom tables
 
-The draw method takes C<5> arrays of strings to define the layout. The first, third and fifth is B<LINE>
+The draw method takes C<6> arrays of strings to define the layout. The first, third, fifth and sixth is B<LINE>
 layout and the second and fourth is B<ROW> layout. The C<fourth> parameter is repeated for each row in the table.
+The sixth parameter is only used if drawRowLine is enabled.
 
- $t->draw(<LINE>,<ROW>,<LINE>,<ROW>,<LINE>)
+ $t->draw(<LINE>,<ROW>,<LINE>,<ROW>,<LINE>,[<ROWLINE>])
 
 =over 4
 
@@ -372,7 +382,7 @@ Nice example:
            ['|','|','-','-'],   # |-------------|
            ['|','|','|'],       # | info | info |
            [' \\','/ ','_','|'] #  \_____|_____/
-          ));
+          );
 
 Nice example2:
 
@@ -381,27 +391,51 @@ Nice example2:
            ['|=','=|','-','+'],   # |=-----+-----=|
            ['|','|','|'],         # | info | info |
            ["'=","='",'-','-']    # '=-----------='
-          ));
+          );
+
+With Options:
+
+ $t->setOptions('drawRowLine',1);
+ $t->draw( ['.=','=.','-','-'],   # .=-----------=.
+           ['|','|','|'],         # | info | info |
+           ['|-','-|','=','='],   # |-===========-|
+           ['|','|','|'],         # | info | info |
+           ["'=","='",'-','-'],   # '=-----------='
+           ['|=','=|','-','+']    # rowseperator
+          );
+ Which makes this output:
+   .=-----------=.
+   | info | info |
+   |-===========-|
+   | info | info |
+   |=-----+-----=| <-- between each row
+   | info | info |
+   '=-----------='
 
 =cut
 
 sub draw {
   my $self = shift;
-  my ($top,$toprow,$middle,$middlerow,$bottom) = @_;
+  my ($top,$toprow,$middle,$middlerow,$bottom,$rowline) = @_;
   my ($tstart,$tstop,$tline,$tdelim) = defined($top) ? @{$top} : undef;
   my ($trstart,$trstop,$trdelim) = defined($toprow) ? @{$toprow} : undef;
   my ($mstart,$mstop,$mline,$mdelim) = defined($middle) ? @{$middle} : undef;
   my ($mrstart,$mrstop,$mrdelim) = defined($middlerow) ? @{$middlerow} : undef;
   my ($bstart,$bstop,$bline,$bdelim) = defined($bottom) ? @{$bottom} : undef;
+  my ($rstart,$rstop,$rline,$rdelim) = defined($rowline) ? @{$rowline} : undef;
   my $contents="";
   $contents .= $self->drawLine(&iif($tstart,'.'),&iif($tstop,'.'),$tline,$tdelim) unless $self->{options}{hide_FirstLine};
   $contents .= $self->drawRow($self->{tbl_cols},1,&iif($trstart,'|'),&iif($trstop,'|'),&iif($trdelim,'|')) unless $self->{options}{hide_HeadRow};
   $contents .= $self->drawLine(&iif($mstart,' >'),&iif($mstop,'< '),$mline,$mdelim) unless $self->{options}{hide_HeadLine};
+  my $i=0;
   for (@{$self->{tbl_rows}}) {
+    $i++;
     $contents .= $self->drawRow($_,0,&iif($mrstart,'|'),&iif($mrstop,'|'),&iif($mrdelim,'|'));
+    $contents .= $self->drawLine(&iif($rstart,'|'),&iif($rstop,'|'),$rline,$rdelim) if ($self->{options}{drawRowLine} && $self->{tbl_rowline}{$i} && ($i != scalar(@{$self->{tbl_rows}})));
   }
   $contents .= $self->drawLine(&iif($bstart,"'"),&iif($bstop,"'"),$bline,$bdelim) unless $self->{options}{hide_LastLine};
-  return $contents;
+  #use Data::Dumper;
+  return $contents;#."\n".Dumper([$self]);
 }
 
 # nifty subs
@@ -463,17 +497,61 @@ sub find {
 
 __END__
 
+=head1 FEATURES
+
+In case you need to know if this module has what you need, I have made this list
+of features included in Text::ASCIITable.
+
+=over 4
+
+=item Configurable layout
+
+You can easily alter how the table should look, in many ways. There are a few examples
+in the draw() section of this documentation.
+
+=item Text Aligning
+
+Align the text in a column to the left, or right or center. Usually you want to align text
+to right if you only have numbers in that row.
+
+=item Multiline support in rows
+
+With the \n(ewline) character you can have rows use more than just one line on
+the output. (This looks nice with the drawRowLine option enabled)
+
+=item Optional wordwrap support (using Text::Wrap)
+
+If you have installed Text::Wrap, you will have the possibility to use have rows
+not be wider than a set amount of characters. If a line exceedes for example 30
+characters, the line will be broken up in several lines.
+
+=item HTML support
+
+If you put in <HTML> tags inside the rows, the output would usually be broken when
+viewed in a browser, since the browser "execute" the tags instead of displaying it.
+But if you enable allowHTML. You are able to write html tags inside the rows without the
+output being broken if you display it in a browser. But you should not mix this with
+wordwrap, since this could make undesirable results.
+
+=item Errorreporting
+
+If you write a script in perl, and don't want users to be notified of the errormessages
+from Text::ASCIITable. You can easily turn of error reporting by setting reportErrors to 0.
+You will still get an 1 instead of undef returned from the function.
+
+=back
+
 =head1 REQUIRES
 
 Exporter, Carp, Text::Wrap
 
 =head1 AUTHOR
 
-Håkon Nessjøen, lunatic@skonux.net
+Håkon Nessjøen, lunatic@cpan.org
 
 =head1 VERSION
 
-Current version is 0.07.
+Current version is 0.08.
 
 =head1 COPYRIGHT
 

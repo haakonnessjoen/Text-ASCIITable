@@ -16,6 +16,7 @@ $t->addRow('Egg','Usually from birds.',6);
 eval {
   $content = $t->draw();
 };
+
 if (!$@) {ok(undef)} else {ok(1)}
 @arr = split(/\n/,$content);
 for(@arr) {

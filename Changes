@@ -1,9 +1,16 @@
 Revision history for Perl extension Text::ASCIITable.
 
+0.08  Sat Jan 18 14:44:21 2003
+	- Added drawRowLine option, to make it draw a line
+	  between every row.
+	- Added FEATURES section to the documentation.
+	- Added strict option to setColWidth. If $strict is set to a
+	  true value, the width of the column will be set to this width.
+
 0.07  Tue Jan 14 12:45:03 2003
 	- Stopped to use Text::Aligner, because I needed one
 	  with the possibillity to change strictness of the function
-	  and counting procedures. Made my own easy align function.
+	  and counting procedures. So I made my own simple align function.
 	- Added allowHTML option. To do this i needed to stop using
 	  Text::Aligner.
 
@@ -31,8 +38,8 @@ Revision history for Perl extension Text::ASCIITable.
 	  converted to html.
 	- Released it on CPAN.
 
-0.02  --- --- -- --:--:-- 2002
-	- started porting of my similar function made in PHP
+0.02  Sat Dec 21 --:--:-- 2002
+	- ported my similar script made in PHP
 
 0.01  Sat Dec 21 13:12:21 2002
 	- original version; created by h2xs 1.19
