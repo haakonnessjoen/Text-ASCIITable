@@ -41,7 +41,7 @@ FUNCTIONS
       Note: It does not require argument to be an array, thus;
       $t->addRow(['id','name']) and $t->addRow('id','name') does the same thing.
 
-  alignCol($col,$direction)
+  alignCol($col,$direction) or alignCol({col1 => direction1, col2 => direction2, ... })
     Given a columnname, it aligns all data to the given direction in the
     table. This looks nice on numerical displays in a column. The column
     names in the table will be unaffected by the alignment. Possible
@@ -215,6 +215,10 @@ FUNCTIONS
        | info | info |
        '=-----------='
 
+    A tips is to enable allowANSI, and use the extra charset in your
+    terminal to create a beautiful table. But don't expect to get good
+    results if you use ANSI-formatted table with $t->drawPage.
+
     User-defined subroutines for aligning
 
     If you want to format your text more throughoutly than "auto", or think
@@ -231,6 +235,19 @@ FUNCTIONS
       }
 
       $t->alignCol('Info',\myownalign_cb);
+
+  drawPage($page,@topdesign,@toprow,@middle,@middlerow,@bottom,@rowline)
+    If you don't want your table to be wider than your screen you can use
+    this with $t->setOptions('outputWidth',40) to set the max size of the
+    output.
+
+    Example:
+
+      $t->setOptions('outputWidth',80);
+      for my $page (1..$t->pageCount()) {
+        print $t->drawPage($page)."\n";
+        print "continued..\n\n";
+      }
 
 FEATURES
     In case you need to know if this module has what you need, I have made
@@ -254,11 +271,10 @@ FEATURES
         one line on the output. (This looks nice with the drawRowLine option
         enabled)
 
-    Optional wordwrap support (using Text::Wrap)
-        If you have installed Text::Wrap, you will have the possibility to
-        use have rows not be wider than a set amount of characters. If a
-        line exceedes for example 30 characters, the line will be broken up
-        in several lines.
+    Wordwrap support
+        You can set a column to not be wider than a set amount of
+        characters. If a line exceedes for example 30 characters, the line
+        will be broken up in several lines.
 
     HTML support
         If you put in <HTML> tags inside the rows, the output would usually
@@ -272,6 +288,9 @@ FEATURES
         Allows you to decorate your tables with colors or bold/underline
         when you display your tables to a terminal window.
 
+    Page-flipping support
+        If you don't want the table to get wider than your terminal-width.
+
     Errorreporting
         If you write a script in perl, and don't want users to be notified
         of the errormessages from Text::ASCIITable. You can easily turn of
@@ -279,13 +298,13 @@ FEATURES
         1 instead of undef returned from the function.
 
 REQUIRES
-    Exporter, Carp, Text::Wrap
+    Exporter, Carp
 
 AUTHOR
     Håkon Nessjøen, lunatic@cpan.org
 
 VERSION
-    Current version is 0.12.
+    Current version is 0.13.
 
 COPYRIGHT
     Copyright 2002-2003 by Håkon Nessjøen. All rights reserved. This module

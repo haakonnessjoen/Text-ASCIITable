@@ -4,16 +4,12 @@ package Text::ASCIITable;
 @ISA=qw(Exporter);
 @EXPORT = qw();
 @EXPORT_OK = qw();
-$VERSION = '0.12';
+$VERSION = '0.13';
 use Exporter;
 use strict;
 use Carp;
+use Text::ASCIITable::Wrap qw{ wrap };
 use overload '""' => 'drawit';
-
-# Determine if Text::Wrap is installed
-my $hasWrap;
-if (eval { require Text::Wrap }) { use Text::Wrap; $hasWrap=1; }
-else { $hasWrap=0; }
 
 =head1 NAME
 
@@ -55,6 +51,7 @@ sub new {
   my $self = {
 		tbl_cols => [],
 		tbl_rows => [],
+		tbl_cuts => [],
 		tbl_align => {},
 
 		des_top       => ['.=','=.','-','+'],
@@ -125,18 +122,14 @@ sub addRow {
   my (@in,@out,@lines,$max);
 
   # Word wrapping:
-  if ($hasWrap) {
-    my @s = @_;
-    foreach my $c (0..(scalar(@_)-1)) {
-      my $width = $self->{tbl_width}{@{$self->{tbl_cols}}[$c]};
-      if ($width) {
-        $Text::Wrap::columns = $width;
-        $in[$c] = wrap('', '', $_[$c]);
-      } else {
-        $in[$c] = $_[$c];
-      }
+  foreach my $c (0..$#_) {
+    my $width = defined($self->{tbl_width}{@{$self->{tbl_cols}}[$c]}) ? $self->{tbl_width}{@{$self->{tbl_cols}}[$c]} : 0;
+    if ($width > 0) {
+      $in[$c] = wrap($_[$c],$width);
+    } else {
+      $in[$c] = $_[$c];
     }
-  } else { @in = @_; }
+  }
 
   # Multiline support:
   @lines = map { [ split(/\n/,$_) ] } @in;
@@ -164,7 +157,7 @@ sub alignColRight {
   return $self->alignCol($col,'right');
 }
 
-=head2 alignCol($col,$direction)
+=head2 alignCol($col,$direction) or alignCol({col1 => direction1, col2 => direction2, ... })
 
 Given a columnname, it aligns all data to the given direction in the table. This looks nice on numerical displays
 in a column. The column names in the table will be unaffected by the alignment. Possible directions is: left,
@@ -174,10 +167,17 @@ center, right, auto or your own subroutine. (Hint: Using auto(default), aligns n
 
 sub alignCol {
   my ($self,$col,$direction) = @_;
-  do { $self->reperror("alignCol is missing parameter(s)"); return 1; } unless defined($col) && defined($direction);
-  do { $self->reperror("Could not find '$col' in columnlist"); return 1; } unless defined(&find($col,$self->{tbl_cols}));
+  do { $self->reperror("alignCol is missing parameter(s)"); return 1; } unless defined($col) && defined($direction) || (defined($col) && ref($col) eq 'HASH');
+  do { $self->reperror("Could not find '$col' in columnlist"); return 1; } unless defined(&find($col,$self->{tbl_cols})) || (defined($col) && ref($col) eq 'HASH');
 
-  $self->{tbl_align}{$col} = $direction;
+  if (ref($col) eq 'HASH') {
+    for (keys %{$col}) {
+      do { $self->reperror("Could not find '$_' in columnlist"); return 1; } unless defined(&find($_,$self->{tbl_cols}));
+      $self->{tbl_align}{$_} = $col->{$_};
+    }
+  } else {
+    $self->{tbl_align}{$col} = $direction;
+  }
   return undef;
 }
 
@@ -211,7 +211,8 @@ sub setColWidth {
   my ($self,$col,$width,$strict) = @_;
   do { $self->reperror("setColWidth is missing parameter(s)"); return 1; } unless defined($col) && defined($width);
   do { $self->reperror("Could not find '$col' in columnlist"); return 1; } unless defined(&find($col,$self->{tbl_cols}));
-  do { $self->reperror("Text::Wrap not installed. Please install from CPAN"); return 1; } unless $hasWrap;
+  do { $self->reperror("Cannot change width at this state"); return 1; } unless scalar(@{$self->{tbl_rows}}) == 0;
+
   $self->{tbl_width}{$col} = int($width);
   $self->{tbl_width_strict}{$col} = $strict ? 1 : 0;
 
@@ -232,8 +233,8 @@ sub getColWidth {
   if (defined($self->{options}{headingText}) && !defined($ignore)) {
     # tablewidth before any cols are expanded
     my $width = $self->getTableWidth('ignore some stuff.. you know..') - 4;
-    if (length($self->{options}{headingText}) > $width) {
-      my $extra = length($self->{options}{headingText}) - $width;
+    if ($self->count($self->{options}{headingText}) > $width) {
+      my $extra = $self->count($self->{options}{headingText}) - $width;
       my $cols = scalar(@{$self->{tbl_cols}});
       $extra_for_all = int($extra/$cols);
       $extrasome = $extra % $cols; # takk for hjelpa rune :P
@@ -251,7 +252,7 @@ sub getColWidth {
 
   # multiline support in columnnames
   my $maxsize=0;
-  grep { $maxsize = length($_) if length($_) > $maxsize } split(/\n/,$colname);
+  grep { $maxsize = $self->count($_) if $self->count($_) > $maxsize } split(/\n/,$colname); # bugfix 0.13
 
   if ($self->{tbl_width_strict}{$colname} == 1 && int($self->{tbl_width}{$colname}) > 0) {
     # maxsize plus the spaces on each side
@@ -292,8 +293,8 @@ sub drawLine {
 
   for (my $i=0;$i < scalar(@{$self->{tbl_cols}});$i++) {
     my $offset = 0;
-    $offset = length($start) - 1 if ($i == 0);
-    $offset = length($stop) - 1 if ($i == scalar(@{$self->{tbl_cols}}) -1);
+    $offset = $self->count($start) - 1 if ($i == 0);
+    $offset = $self->count($stop) - 1 if ($i == scalar(@{$self->{tbl_cols}}) -1);
 
     $contents .= $line x ($self->getColWidth(@{$self->{tbl_cols}}[$i]) - $offset);
 
@@ -373,6 +374,35 @@ sub setOptions {
   return $old;
 }
 
+# Thanks to Khemir Nadim ibn Hamouda <nadim@khemir.net>
+# Original code from Spreadsheet::Perl::ASCIITable
+sub prepareParts {
+  my ($self)=@_;
+  my $running_width = 1 ;
+
+  $self->{tbl_cuts} = [];
+  foreach my $column (@{$self->{tbl_cols}}) {
+    my $column_width = $self->getColWidth($column,undef);
+    if ($running_width  + $column_width >= $self->{options}{outputWidth}) {
+      push @{$self->{tbl_cuts}}, $running_width;
+      $running_width = $column_width + 2;
+    } else {
+      $running_width += $column_width + 1 ;
+    }
+  }
+  push @{$self->{tbl_cuts}}, $self->getTableWidth() ;
+}
+
+sub pageCount {
+  my $self = shift;
+  do { $self->reperror("Table has no max output-width set"); return 1; } unless defined($self->{options}{outputWidth});
+
+  return 1 if ($self->getTableWidth() < $self->{options}{outputWidth});
+  $self->prepareParts() if (scalar(@{$self->{tbl_cuts}}) < 1);
+
+  return scalar(@{$self->{tbl_cuts}});
+}
+
 sub drawSingleColumnRow {
   my ($self,$text,$start,$stop,$align,$opt) = @_;
   do { $self->reperror("Missing reqired parameters"); return 1; } unless defined($text);
@@ -380,8 +410,8 @@ sub drawSingleColumnRow {
   my $contents = $start;
   my $width = 0;
   # ok this is a bad shortcut, but 'till i get up with a better one, I use this.
-  if (($self->getTableWidth() - 4) < length($text) && $opt eq 'title') {
-    $width = length($text);
+  if (($self->getTableWidth() - 4) < $self->count($text) && $opt eq 'title') {
+    $width = $self->count($text);
   }
   else {
     $width = $self->getTableWidth() - 4;
@@ -548,6 +578,10 @@ With Options:
    | info | info |
    '=-----------='
 
+A tips is to enable allowANSI, and use the extra charset in your terminal to create
+a beautiful table. But don't expect to get good results if you use ANSI-formatted table
+with $t->drawPage.
+
 B<User-defined subroutines for aligning>
 
 If you want to format your text more throughoutly than "auto", or think you
@@ -568,36 +602,71 @@ have a better way of centering text; you can make your own subroutine.
 
 sub drawit {scalar shift()->draw()}
 
+=head2 drawPage($page,@topdesign,@toprow,@middle,@middlerow,@bottom,@rowline)
+
+If you don't want your table to be wider than your screen you can use this
+with $t->setOptions('outputWidth',40) to set the max size of the output.
+
+Example:
+
+  $t->setOptions('outputWidth',80);
+  for my $page (1..$t->pageCount()) {
+    print $t->drawPage($page)."\n";
+    print "continued..\n\n";
+  }
+
+=cut
+
+sub drawPage {
+  my $self = shift;
+  my ($pagenum,$top,$toprow,$middle,$middlerow,$bottom,$rowline) = @_;
+  return $self->draw($top,$toprow,$middle,$middlerow,$bottom,$rowline,$pagenum);
+}
+
+# Thanks to Khemir Nadim ibn Hamouda <nadim@khemir.net> for code and idea.
+sub getPart {
+  my ($self,$page,$text) = @_;
+  my $offset=0;
+
+  return $text unless $page > 0;
+  $text =~ s/\n$//;
+
+  $self->prepareParts() if (scalar(@{$self->{tbl_cuts}}) < 1);
+  $offset += (@{$self->{tbl_cuts}}[$_] - 1) for(0..$page-2);
+
+  return substr($text, $offset, @{$self->{tbl_cuts}}[$page-1]) . "\n" ;
+}
+
 sub draw {
   my $self = shift;
-  my ($top,$toprow,$middle,$middlerow,$bottom,$rowline) = @_;
+  my ($top,$toprow,$middle,$middlerow,$bottom,$rowline,$page) = @_;
   my ($tstart,$tstop,$tline,$tdelim) = defined($top) ? @{$top} : @{$self->{des_top}};
   my ($trstart,$trstop,$trdelim) = defined($toprow) ? @{$toprow} : @{$self->{des_toprow}};
   my ($mstart,$mstop,$mline,$mdelim) = defined($middle) ? @{$middle} : @{$self->{des_middle}};
   my ($mrstart,$mrstop,$mrdelim) = defined($middlerow) ? @{$middlerow} : @{$self->{des_middlerow}};
   my ($bstart,$bstop,$bline,$bdelim) = defined($bottom) ? @{$bottom} : @{$self->{des_bottom}};
   my ($rstart,$rstop,$rline,$rdelim) = defined($rowline) ? @{$rowline} : @{$self->{des_rowline}};
-  my $contents="";
+  my $contents=""; $page = defined($page) ? $page : 0;
 
-  $contents .= $self->drawLine($tstart,$tstop,$tline,$tline) unless $self->{options}{hide_FirstLine};
+  $contents .= $self->getPart($page,$self->drawLine($tstart,$tstop,$tline,$tdelim)) unless $self->{options}{hide_FirstLine};
   if (defined($self->{options}{headingText})) {
-    $contents .= $self->drawSingleColumnRow($self->{options}{headingText},$self->{options}{headingStartChar} || '|',$self->{options}{headingStopChar} || '|',$self->{options}{headingAlign} || 'center','title');
-    $contents .= $self->drawLine($mstart,$mstop,$mline,$mdelim) unless $self->{options}{hide_HeadLine};
+    $contents .= $self->getPart($page,$self->drawSingleColumnRow($self->{options}{headingText},$self->{options}{headingStartChar} || '|',$self->{options}{headingStopChar} || '|',$self->{options}{headingAlign} || 'center','title'));
+    $contents .= $self->getPart($page,$self->drawLine($mstart,$mstop,$mline,$mdelim)) unless $self->{options}{hide_HeadLine};
   }
   unless ($self->{options}{hide_HeadRow}) {
 		# multiline-column-support
 		foreach my $row (@{$self->{tbl_multilinecols}}) {
-			$contents .= $self->drawRow($row,1,$trstart,$trstop,$trdelim);
+			$contents .= $self->getPart($page,$self->drawRow($row,1,$trstart,$trstop,$trdelim));
 		}
 	}
-  $contents .= $self->drawLine($mstart,$mstop,$mline,$mdelim) unless $self->{options}{hide_HeadLine};
+  $contents .= $self->getPart($page,$self->drawLine($mstart,$mstop,$mline,$mdelim)) unless $self->{options}{hide_HeadLine};
   my $i=0;
   for (@{$self->{tbl_rows}}) {
     $i++;
-    $contents .= $self->drawRow($_,0,$mrstart,$mrstop,$mrdelim);
-    $contents .= $self->drawLine($rstart,$rstop,$rline,$rdelim) if ($self->{options}{drawRowLine} && $self->{tbl_rowline}{$i} && ($i != scalar(@{$self->{tbl_rows}})));
+    $contents .= $self->getPart($page,$self->drawRow($_,0,$mrstart,$mrstop,$mrdelim));
+    $contents .= $self->getPart($page,$self->drawLine($rstart,$rstop,$rline,$rdelim)) if ($self->{options}{drawRowLine} && $self->{tbl_rowline}{$i} && ($i != scalar(@{$self->{tbl_rows}})));
   }
-  $contents .= $self->drawLine($bstart,$bstop,$bline,$bdelim) unless $self->{options}{hide_LastLine};
+  $contents .= $self->getPart($page,$self->drawLine($bstart,$bstop,$bline,$bdelim)) unless $self->{options}{hide_LastLine};
 
   return $contents;
 }
@@ -609,7 +678,9 @@ sub count {
   my ($self,$str) = @_;
   $str =~ s/<.+?>//g if $self->{options}{allowHTML};
   $str =~ s/\33\[(\d+(;\d+)?)?[musfwhojBCDHRJK]//g if $self->{options}{allowANSI}; # maybe i should only have allowed ESC[#;#m and not things not related to
-  return length($str);                                                             # color/bold/underline.. But I want to give people as much room as they need.
+  $str =~ s/\33\([0B]//g if $self->{options}{allowANSI};                           # color/bold/underline.. But I want to give people as much room as they need.
+
+  return length($str);
 }
 
 sub align {
@@ -659,7 +730,6 @@ sub find {
   return undef;
 }
 
-
 1;
 
 __END__
@@ -688,11 +758,10 @@ to the right. You can also use your own subroutine as a callback-function to ali
 With the \n(ewline) character you can have rows use more than just one line on
 the output. (This looks nice with the drawRowLine option enabled)
 
-=item Optional wordwrap support (using Text::Wrap)
+=item Wordwrap support
 
-If you have installed Text::Wrap, you will have the possibility to use have rows
-not be wider than a set amount of characters. If a line exceedes for example 30
-characters, the line will be broken up in several lines.
+You can set a column to not be wider than a set amount of characters. If a line exceedes
+for example 30 characters, the line will be broken up in several lines.
 
 =item HTML support
 
@@ -707,6 +776,10 @@ wordwrap, since this could make undesirable results.
 Allows you to decorate your tables with colors or bold/underline when you display
 your tables to a terminal window.
 
+=item Page-flipping support
+
+If you don't want the table to get wider than your terminal-width.
+
 =item Errorreporting
 
 If you write a script in perl, and don't want users to be notified of the errormessages
@@ -717,7 +790,7 @@ You will still get an 1 instead of undef returned from the function.
 
 =head1 REQUIRES
 
-Exporter, Carp, Text::Wrap
+Exporter, Carp
 
 =head1 AUTHOR
 
@@ -725,7 +798,7 @@ Håkon Nessjøen, lunatic@cpan.org
 
 =head1 VERSION
 
-Current version is 0.12.
+Current version is 0.13.
 
 =head1 COPYRIGHT
 

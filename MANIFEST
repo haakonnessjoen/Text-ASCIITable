@@ -3,6 +3,7 @@ README
 MANIFEST
 Makefile.PL
 ASCIITable.pm
+ASCIITable/Wrap.pm
 t/01_default.t
 t/02_custom.t
 t/03_options.t
@@ -12,4 +13,5 @@ t/06_htmlstrip.t
 t/07_aligning.t
 t/08_heading.t
 t/09_ansistrip.t
+t/10_pages.t
 META.yml
