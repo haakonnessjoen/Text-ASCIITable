@@ -1,0 +1,87 @@
+NAME
+    Text::ASCIITable - Create a nice formatted table using ASCII characters.
+    Nice, if you want to output dynamic text to your console or other
+    fixed-size displays.
+
+SYNOPSIS
+      use Text::ASCIITable;
+  
+      $t = new Text::ASCIITable;
+      $t->setCols(['Nickname','Name']);
+      $t->addRow('Lunatic-|','Håkon Nessjøen');
+      $t->addRow('tesepe','William Viker');
+      $t->addRow('espen','Espen Ursin-Holm');
+      $t->addRow('mamikk','Martin Mikkelsen');
+      $t->addRow('p33r','Espen A. Jütte');
+      print $t->draw();
+
+FUNCTIONS
+  setCols(@cols)
+    Define the columns for the table(compare with <TH> in HTML). For example
+    "setCols(['Id','Nick','Name'])". Note that you cannot add Cols after you
+    have added a row.
+
+  addCol($col)
+    Add a column to the columnlist. This still can't be done after you have
+    added a row.
+
+  addRow(@collist)
+    Adds one row to the table. This must be an array of strings. If you
+    defined 3 columns. This array must have 3 items in it. And so on. Should
+    be self explanatory.
+
+  alignColRight($col)
+    Given a columnname, it aligns all data to the right in the table. This
+    looks nice on numerical displays in a column. The column names in the
+    table will not be unaffected by the alignment.
+
+  getTableWidth()
+    If you need to know how wide your table will be before you draw it. Use
+    this function.
+
+  draw([@topdesign,@rowdelims,@middle,@bottom])
+    All the arrays containing the layout is optional. If you want to make
+    your own "design" to the table, you can do that by giving this method
+    these arrays containing information about which characters to use where.
+
+    Examples:
+
+    The easiest way:
+
+     $t->draw();
+
+    Explanatory example:
+
+     $t->draw( ['L','R','-','D'],   # L------D------R
+               ['H','M'],           # | info H info |  (the M is delemiter on the rows, like H is on the colums-row)
+               ['L','R','-','D'],   # L------D------R
+               ['L','R ','_','D']   # L______D______R
+              ));
+
+    Nice example:
+
+     $t->draw( ['.','.','-','-'],   # .-------------.
+               ['|','|'],           # | info | info |
+               ['|','|','-','-'],   # |-------------|
+               [' \\','/ ','_','|'] #  \_____|_____/
+              ));
+
+    Nice example2:
+
+     $t->draw( ['.=','=.','-','-'],   # .=-----------=.
+               ['|','|'],             # | info | info |
+               ['|=','=|','-','+'],   # |=-----+-----=|
+               ["'=","='",'-','-']    # '=-----------='
+              ));
+
+REQUIRES
+    Exporter, Carp
+
+AUTHOR
+    Håkon Nessjøen, lunatic@skonux.net
+
+COPYRIGHT
+    Copyright 2002-2003 by Håkon Nessjøen. All rights reserved. This module
+    is free software; you can redistribute it and/or modify it under the
+    same terms as Perl itself.
+

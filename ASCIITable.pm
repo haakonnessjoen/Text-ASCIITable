@@ -1,8 +1,5 @@
-#
-# Module Text::ASCIITable
-# By Håkon Nessjøen <lunatic@skonux.net>
-#
 package Text::ASCIITable;
+# by Håkon Nessjøen <lunatic@skonux.net>
 
 @ISA=qw(Exporter);
 @EXPORT = qw();
@@ -25,16 +22,16 @@ text to your console or other fixed-size displays.
 
 =head1 SYNOPSIS
 
-use Text::ASCIITable;
-
-$t = new Text::ASCIITable;
-$t->setCols(['Nickname','Name']);
-$t->addRow('Lunatic-|','Håkon Nessjøen');
-$t->addRow('tesepe','William Viker');
-$t->addRow('espen','Espen Ursin-Holm');
-$t->addRow('mamikk','Martin Mikkelsen');
-$t->addRow('p33r','Espen A. Jütte');
-print $t->draw();
+  use Text::ASCIITable;
+  
+  $t = new Text::ASCIITable;
+  $t->setCols(['Nickname','Name']);
+  $t->addRow('Lunatic-|','Håkon Nessjøen');
+  $t->addRow('tesepe','William Viker');
+  $t->addRow('espen','Espen Ursin-Holm');
+  $t->addRow('mamikk','Martin Mikkelsen');
+  $t->addRow('p33r','Espen A. Jütte');
+  print $t->draw();
 
 =head1 FUNCTIONS
 
@@ -185,9 +182,11 @@ where.
 Examples:
 
 The easiest way:
+
  $t->draw();
 
 Explanatory example:
+
  $t->draw( ['L','R','-','D'],   # L------D------R
            ['H','M'],           # | info H info |  (the M is delemiter on the rows, like H is on the colums-row)
            ['L','R','-','D'],   # L------D------R
@@ -195,6 +194,7 @@ Explanatory example:
           ));
 
 Nice example:
+
  $t->draw( ['.','.','-','-'],   # .-------------.
            ['|','|'],           # | info | info |
            ['|','|','-','-'],   # |-------------|
@@ -202,9 +202,10 @@ Nice example:
           ));
 
 Nice example2:
+
  $t->draw( ['.=','=.','-','-'],   # .=-----------=.
            ['|','|'],             # | info | info |
-           ['|=','=|','-','+'],    # |=-----+-----=|
+           ['|=','=|','-','+'],   # |=-----+-----=|
            ["'=","='",'-','-']    # '=-----------='
           ));
 
