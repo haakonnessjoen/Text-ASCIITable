@@ -4,7 +4,7 @@ package Text::ASCIITable;
 @ISA=qw(Exporter);
 @EXPORT = qw();
 @EXPORT_OK = qw();
-$VERSION = '0.13';
+$VERSION = '0.14';
 use Exporter;
 use strict;
 use Carp;
@@ -62,6 +62,8 @@ sub new {
 		des_toprow    => ['|','|','|'],
 		des_middlerow => ['|','|','|'],
 
+		cache_width   => {},
+
 		options => $_[1] || { }
   };
 
@@ -117,9 +119,13 @@ have 3 items in it. And so on. Should be self explanatory. The strings can conta
 sub addRow {
   my $self = shift;
   @_ = @{$_[0]} if (ref($_[0]) eq 'ARRAY');
-  do { $self->reperror("Received too few columns"); return 1; } if scalar(@_) < scalar(@{$self->{tbl_cols}});
   do { $self->reperror("Received too many columns"); return 1; } if scalar(@_) > scalar(@{$self->{tbl_cols}});
   my (@in,@out,@lines,$max);
+
+  # Fill out row, if columns are missing (requested) Mar 21  2004 by a anonymous person
+  while (scalar(@_) > scalar(@{$self->{tbl_cols}})) {
+    push @_, '';
+  }
 
   # Word wrapping:
   foreach my $c (0..$#_) {
@@ -137,7 +143,7 @@ sub addRow {
 
   grep {$max = scalar(@{$_}) if scalar(@{$_}) > $max} @lines;
   foreach my $num (0..($max-1)) {
-    my @tmp = map { @{$_}[$num] || '' } @lines;
+    my @tmp = map { length(@{$_}[$num]) ? @{$_}[$num] : '' } @lines;
     push @out, [ @tmp ];
   }
 
@@ -224,10 +230,9 @@ sub setColWidth {
 sub getColWidth {
   my ($self,$colname,$ignore) = @_;
   my $pos = &find($colname,$self->{tbl_cols});
-  #my $maxsize = $self->count($colname);
   my ($extra_for_all,$extrasome);
   my %extratbl;
-  do { $self->reperror("Could not find '$colname' in columnlist"); return 1; } unless defined($pos);
+  do { $self->reperror("Could not find '$colname' in columnlist"); } unless defined($pos);
 
   # Expand width of table if headingtext is wider than the rest
   if (defined($self->{options}{headingText}) && !defined($ignore)) {
@@ -250,13 +255,16 @@ sub getColWidth {
     }
   }
 
+  return $self->{cache_width}{$colname} if defined $self->{cache_width}{$colname} && !defined($self->{options}{headingText}); # Unable to cache with headingText
+
   # multiline support in columnnames
   my $maxsize=0;
   grep { $maxsize = $self->count($_) if $self->count($_) > $maxsize } split(/\n/,$colname); # bugfix 0.13
 
   if ($self->{tbl_width_strict}{$colname} == 1 && int($self->{tbl_width}{$colname}) > 0) {
     # maxsize plus the spaces on each side
-    return $self->{tbl_width}{$colname} + 2 + (defined($extratbl{$colname}) ? $extratbl{$colname} : 0);
+    $self->{cache_width}{$colname} = $self->{tbl_width}{$colname} + 2 + (defined($extratbl{$colname}) ? $extratbl{$colname} : 0);
+    return $self->{cache_width}{$colname};
   } else {
     for my $row (@{$self->{tbl_rows}}) {
       $maxsize = $self->count(@{$row}[$pos]) if ($self->count(@{$row}[$pos]) > $maxsize);
@@ -264,7 +272,8 @@ sub getColWidth {
   }
 
   # maxsize pluss the spaces on each side + extra width from title
-  return $maxsize + 2 + (defined($extratbl{$colname}) ? $extratbl{$colname} : 0);
+  $self->{cache_width}{$colname} = $maxsize + 2 + (defined($extratbl{$colname}) ? $extratbl{$colname} : 0);
+  return $self->{cache_width}{$colname};
 }
 
 =head2 getTableWidth()
@@ -303,11 +312,15 @@ sub drawLine {
   return $contents.$stop."\n";
 }
 
-=head2 setOptions(name,value)
+=head2 setOptions(name,value) or setOptions({ option1 => value1, option2 => value2, ... })
 
 Use this to set options like: hide_FirstLine,reportErrors, etc.
 
+  Usage:
   $t->setOptions('hide_HeadLine',1);
+  
+  Or set more than one option on the fly:
+  $t->setOptions({ hide_HeadLine => 1, hide_HeadRow => 1 });
 
 B<Possible Options>
 
@@ -363,14 +376,29 @@ Align the heading(as mentioned above) to left, right, center, auto or using a su
 Choose the startingchar and endingchar of the row where the title is. The default is
 '|' on both. If you didn't understand this, try reading about the draw() function.
 
+=item cb_count
+
+Set the callback subroutine to use when counting characters inside the table. This is useful
+to make support for having characters or codes inside the table that are not shown on the
+screen to the user, so the table should not count these characters. This could be for example
+HTML tags, or ANSI codes. Though those two examples are alredy supported internally with the
+allowHTML and allowANSI, options. This option expects a CODE reference. (\&callback_function)
+
 =back
 
 =cut
 
 sub setOptions {
   my ($self,$name,$value) = @_;
-  my $old = $self->{options}{$name} || undef;
-  $self->{options}{$name} = $value;
+  my $old;
+  if (ref($name) eq 'HASH') {
+    for (keys %{$name}) {
+      $self->{options}{$_} = $name->{$_};
+    }
+  } else {
+    $old = $self->{options}{$name} || undef;
+    $self->{options}{$name} = $value;
+  }
   return $old;
 }
 
@@ -420,10 +448,11 @@ sub drawSingleColumnRow {
                        $text,
                        $align || 'left',
                        $width,
-                       ($self->{options}{allowHTML} || $self->{options}{allowANSI}?0:1)
+                       ($self->{options}{allowHTML} || $self->{options}{allowANSI} || $self->{options}{cb_count} ?0:1)
                    ).' ';
   return $contents.$stop."\n";
 }
+
 sub drawRow {
   my ($self,$row,$isheader,$start,$stop,$delim) = @_;
   do { $self->reperror("Missing reqired parameters"); return 1; } unless defined($row);
@@ -432,29 +461,30 @@ sub drawRow {
 
   my $contents = $start;
   for (my $i=0;$i<scalar(@{$row});$i++) {
+    my $colwidth = $self->getColWidth(@{$self->{tbl_cols}}[$i]);
     my $text = @{$row}[$i];
 
     if ($isheader != 1 && defined($self->{tbl_align}{@{$self->{tbl_cols}}[$i]})) {
       $contents .= ' '.$self->align(
                          $text,
-                         $self->{tbl_align}{@{$self->{tbl_cols}}[$i]} || 'left',
-                         $self->getColWidth(@{$self->{tbl_cols}}[$i])-2,
-                         ($self->{options}{allowHTML} || $self->{options}{allowANSI}?0:1)
+                         $self->{tbl_align}{@{$self->{tbl_cols}}[$i]} || 'auto',
+                         $colwidth-2,
+                         ($self->{options}{allowHTML} || $self->{options}{allowANSI} || $self->{options}{cb_count}?0:1)
                        ).' ';
     } elsif ($isheader == 1) {
 
       $contents .= ' '.$self->align(
                          $text,
                          $self->{tbl_colalign}{@{$self->{tbl_cols}}[$i]} || $self->{options}{alignHeadRow} || 'left',
-                         $self->getColWidth(@{$self->{tbl_cols}}[$i])-2,
-                         ($self->{options}{allowHTML} || $self->{options}{allowANSI}?0:1)
+                         $colwidth-2,
+                         ($self->{options}{allowHTML} || $self->{options}{allowANSI} || $self->{options}{cb_count}?0:1)
                        ).' ';
     } else {
       $contents .= ' '.$self->align(
                          $text,
-                         'left',
-                         $self->getColWidth(@{$self->{tbl_cols}}[$i])-2,
-                         ($self->{options}{allowHTML} || $self->{options}{allowANSI}?0:1)
+                         'auto',
+                         $colwidth-2,
+                         ($self->{options}{allowHTML} || $self->{options}{allowANSI} || $self->{options}{cb_count}?0:1)
                        ).' ';
     }
     $contents .= $delim if ($i != scalar(@{$row}) - 1);
@@ -530,48 +560,48 @@ Examples:
 
 The easiest way:
 
- $t->draw();
+ print $t;
 
 Explanatory example:
 
- $t->draw( ['L','R','l','D'],  # LllllllDllllllR
-           ['L','R','D'],      # L info D info R
-           ['L','R','l','D'],  # LllllllDllllllR
-           ['L','R','D'],      # L info D info R
-           ['L','R','l','D']   # LllllllDllllllR
-          );
+ print $t->draw( ['L','R','l','D'],  # LllllllDllllllR
+                 ['L','R','D'],      # L info D info R
+                 ['L','R','l','D'],  # LllllllDllllllR
+                 ['L','R','D'],      # L info D info R
+                 ['L','R','l','D']   # LllllllDllllllR
+                );
 
 Nice example:
 
- $t->draw( ['.','.','-','-'],   # .-------------.
-           ['|','|','|'],       # | info | info |
-           ['|','|','-','-'],   # |-------------|
-           ['|','|','|'],       # | info | info |
-           [' \\','/ ','_','|'] #  \_____|_____/
-          );
+ print $t->draw( ['.','.','-','-'],   # .-------------.
+                 ['|','|','|'],       # | info | info |
+                 ['|','|','-','-'],   # |-------------|
+                 ['|','|','|'],       # | info | info |
+                 [' \\','/ ','_','|'] #  \_____|_____/
+                );
 
 Nice example2:
 
- $t->draw( ['.=','=.','-','-'],   # .=-----------=.
-           ['|','|','|'],         # | info | info |
-           ['|=','=|','-','+'],   # |=-----+-----=|
-           ['|','|','|'],         # | info | info |
-           ["'=","='",'-','-']    # '=-----------='
-          );
+ print $t->draw( ['.=','=.','-','-'],   # .=-----------=.
+                 ['|','|','|'],         # | info | info |
+                 ['|=','=|','-','+'],   # |=-----+-----=|
+                 ['|','|','|'],         # | info | info |
+                 ["'=","='",'-','-']    # '=-----------='
+                );
 
 With Options:
 
  $t->setOptions('drawRowLine',1);
- $t->draw( ['.=','=.','-','-'],   # .=-----------=.
-           ['|','|','|'],         # | info | info |
-           ['|-','-|','=','='],   # |-===========-|
-           ['|','|','|'],         # | info | info |
-           ["'=","='",'-','-'],   # '=-----------='
-           ['|=','=|','-','+']    # rowseperator
-          );
+ print $t->draw( ['.=','=.','-','-'],   # .=-----------=.
+                 ['|','|','|'],         # | info | info |
+                 ['|-','-|','=','='],   # |-===========-|
+                 ['|','|','|'],         # | info | info |
+                 ["'=","='",'-','-'],   # '=-----------='
+                 ['|=','=|','-','+']    # rowseperator
+                );
  Which makes this output:
    .=-----------=.
-   | info | info |
+   | col1 | col2 |
    |-===========-|
    | info | info |
    |=-----+-----=| <-- between each row
@@ -596,7 +626,20 @@ have a better way of centering text; you can make your own subroutine.
     return $text;
   }
 
-  $t->alignCol('Info',\myownalign_cb);
+  $t->alignCol('Info',\&myownalign_cb);
+
+B<User-defined subroutines for counting>
+
+This is a feature to use if you are not happy with the internal allowHTML or allowANSI
+support. Given is an example of how you make a count-callback that makes ASCIITable support
+ANSI codes inside the table. (would make the same result as setting allowANSI to 1)
+
+  $t->setOptions('cb_count',\&myallowansi);
+  sub myallowansi_cb {
+    $_=shift;
+    s/\33\[(\d+(;\d+)?)?[musfwhojBCDHRJK]//g;
+    return length($_);
+  }
 
 =cut
 
@@ -676,6 +719,16 @@ sub draw {
 # Replaces length() because of optional HTML and ANSI stripping
 sub count {
   my ($self,$str) = @_;
+
+  if (defined($self->{options}{cb_count}) && ref($self->{options}{cb_count}) eq 'CODE') {
+    my $ret = eval { return &{$self->{options}{cb_count}}($str); };
+    return $ret if (!$@);
+    do { $self->reperror("Error: 'cb_count' callback returned error, ".$@); return 1; } if ($@);
+  }
+  elsif (defined($self->{options}{cb_count}) && ref($self->{options}{cb_count}) ne 'CODE') {
+    $self->reperror("Error: 'cb_count' set but no valid callback found, found ".ref($self->{options}{cb_count}));
+    return length($str);
+  }
   $str =~ s/<.+?>//g if $self->{options}{allowHTML};
   $str =~ s/\33\[(\d+(;\d+)?)?[musfwhojBCDHRJK]//g if $self->{options}{allowANSI}; # maybe i should only have allowed ESC[#;#m and not things not related to
   $str =~ s/\33\([0B]//g if $self->{options}{allowANSI};                           # color/bold/underline.. But I want to give people as much room as they need.
@@ -688,7 +741,7 @@ sub align {
   my ($self,$text,$dir,$length,$strict) = @_;
 
   if ($dir =~ /auto/i) {
-    if ($text =~ /^-?\d+(\.\d+)*$/) {
+    if ($text =~ /^-?\d+(\.\d+)*[%\w]?$/) {
       $dir = 'right';
     } else {
       $dir = 'left';
@@ -697,7 +750,7 @@ sub align {
   if (ref($dir) eq 'CODE') {
     my $ret = eval { return &{$dir}($text,$length,$self->count($text),$strict); };
     return 'CB-ERR' if ($@);
-    return 'CB-LEN-ERR' if ($self->count($ret) != $length);
+    # Removed in v0.14 # return 'CB-LEN-ERR' if ($self->count($ret) != $length);
     return $ret;
   } elsif ($dir =~ /right/i) {
     $text = (" " x ($length - $self->count($text))).$text;
@@ -715,6 +768,8 @@ sub align {
     $text = (" " x $left).$text.(" " x $right);
     return substr($text,0,$length) if ($strict);
     return $text;
+  } else {
+    return $self->align($text,'auto',$length,$strict);
   }
 }
 
@@ -794,11 +849,11 @@ Exporter, Carp
 
 =head1 AUTHOR
 
-Håkon Nessjøen, lunatic@cpan.org
+Håkon Nessjøen, <lunatic@cpan.org>
 
 =head1 VERSION
 
-Current version is 0.13.
+Current version is 0.14.
 
 =head1 COPYRIGHT
 

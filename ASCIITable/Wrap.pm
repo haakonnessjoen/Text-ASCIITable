@@ -3,7 +3,7 @@ package Text::ASCIITable::Wrap;
 @ISA=qw(Exporter);
 @EXPORT = qw();
 @EXPORT_OK = qw(wrap);
-$VERSION = '0.1';
+$VERSION = '0.2';
 use Exporter;
 use strict;
 use Carp;
@@ -19,7 +19,7 @@ Make sure a text never gets wider than the specified width using wordwrap.
 =head1 SYNOPSIS
 
   use Text::ASCIITable::Wrap qw{ wrap };
-  print wrap(10,'This is a long line which will be cut down to several lines');
+  print wrap('This is a long line which will be cut down to several lines',10);
 
 =head1 FUNCTIONS
 
@@ -45,39 +45,23 @@ sub _wrap {
   my ($text,$width,$nostrict) = @_;
   my @result;
   my $line='';
-  my $num=0;
+  $nostrict = defined($nostrict) && $nostrict == 1 ? 1 : 0;
   for (split(/ /,$text)) {
-    if ($num == 0) {
-      if (length($_) > $width) {
-        push @result, defined($nostrict) ? $_ : substr($_,0,$width); # kutt ned bredden
-        $num=0;
-        $line='';
-      } else {
-        $line = $_;
-        if (length($_) + 1 >= $width) {
-          push @result,$line;
-          $num=0;
-        } else {
-          $num++;
-        }
-      }
+    my $spc = $line eq '' ? 0 : 1;
+    my $len = length($line);
+    my $newlen = $len + $spc + length($_);
+    if ($len == 0 && $newlen > $width) {
+      push @result, $nostrict == 1 ? $_ : substr($_,0,$width); # kutt ned bredden
+      $line='';
+    }
+    elsif ($len != 0 && $newlen > $width) {
+      push @result, $nostrict == 1 ? $line : substr($line,0,$width);
+      $line = $_;
     } else {
-      if (length($line) + 1 + length($_) > $width) {
-        push @result,$line;
-        $line = $_;
-        if (length($_)+1 >= $width) {
-          push @result, defined($nostrict) ? $_ : substr($_,0,$width); # tilfelle den er for lang
-          $num=0;
-        } else {
-          $num++;
-        }
-      } else {
-        $line .= ' '.$_;
-	$num++;
-      }
+      $line .= (' ' x $spc).$_;
     }
   }
-  push @result,$line if $line ne '';
+  push @result,$nostrict == 1 ? $line : substr($line,0,$width) if $line ne '';
   return join("\n",@result);
 }
 
@@ -96,7 +80,7 @@ Håkon Nessjøen, lunatic@cpan.org
 
 =head1 VERSION
 
-Current version is 0.1.
+Current version is 0.2.
 
 =head1 COPYRIGHT
 
@@ -107,7 +91,7 @@ you can redistribute it and/or modify it under the same terms as Perl itself.
 
 =head1 SEE ALSO
 
-Text::ASCIITable
+Text::ASCIITable, Text::Wrap
 
 =cut
 

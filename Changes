@@ -1,5 +1,15 @@
 Revision history for Perl extension Text::ASCIITable.
 
+0.14	Sun	Mar	21 23:56:12 2004
+	- Cleaned/rewrote the Text::ASCIITable::Wrap code. Same result, better code.
+	- Removed code wich prevented a external callbacksub for align from functioning
+	  if allowANSI or allowHTML was set.
+	- Added support for a callback subroutine instead of the internal count function.
+	- Added some caching in getColWidth.
+	- alignCol and setOptions now accepts a hash to set values.
+	- Columns containing just 0 was not shown. Fixed.
+	- addRow no longer expects exact number of columns.
+
 0.13	Sun	Feb	22 20:30:00 2004
 	- Fixed first bug. Tables got wider if it was a lot of html/ansi codes
 	  even if ansisupport was turned on.

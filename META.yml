@@ -1,6 +1,6 @@
 #XXXXXXX This is a prototype!!!  It will change in the future!!! XXXXX#
 name:         Text-ASCIITable
-version:      0.13
+version:      0.14
 version_from: ASCIITable.pm
 installdirs:  site
 requires:
