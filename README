@@ -1,8 +1,10 @@
 NAME
     Text::ASCIITable - Create a nice formatted table using ASCII characters.
-    Preatty nifty if you want to output dynamic text to your console or
-    other fixed-size displays, and at the same time display it in a nice
-    readable, or "cool" way.
+
+SHORT DESCRIPTION
+    Pretty nifty if you want to output dynamic text to your console or other
+    fixed-size-font displays, and at the same time it will display it in a
+    nice human-readable, or "cool" way.
 
 SYNOPSIS
       use Text::ASCIITable;
@@ -67,17 +69,9 @@ FUNCTIONS
 
   setOptions(name,value)
 
-    Use this to set options like:
-    hide_FirstLine,hide_HeadLine,hide_HeadRow,hide_LastLine,reportErrors,all
-    owHTML,alignHeadRow or drawRowLine.
+    Use this to set options like: hide_FirstLine,reportErrors, etc.
 
       $t->setOptions('hide_HeadLine',1);
-
-    When allowHTML is set to 1, it makes it possible to use this table in a
-    HTML page where you want links/colors on the text inside the table. You
-    can then use <B>hello</B> inside a row/columnname without the
-    table-width to break apart. When using Text::ASCIITable on webpages,
-    remember to use <PRE> before and after the output of this table.
 
     Possible Options
 
@@ -96,8 +90,13 @@ FUNCTIONS
     allowHTML
         If you are going to use Text::ASCIITable to be shown on HTML pages,
         you should set this option to 1 when you are going to use HTML tags
-        inside the rows, and you want the browser to handle the table
-        correct.
+        to for example color the text inside the rows, and you want the
+        browser to handle the table correct.
+
+    allowANSI
+        If you use ANSI codes like <ESC>[1mHi this is bold<ESC>[m or
+        similar. This option will make the table to be displayed correct
+        when showed in a ANSI compilant terminal. Set this to 1 to enable.
 
     alignHeadRow
         Set wich direction the Column-names(in the headrow) are supposed to
@@ -113,8 +112,10 @@ FUNCTIONS
     headingText
         Add a heading above the columnnames/rows wich uses the whole width
         of the table to output a heading/title to the table. The
-        heading-part of the table is automaticly shown when headingText
-        contains the chosen heading.
+        heading-part of the table is automaticly shown when the headingText
+        option contains text. Note: If this text is so long that it makes
+        the table wider, it will not hesitate to change width of columns
+        that have "strict width".
 
     headingAlign
         Align the heading(as mentioned above) to left, right or center.
@@ -249,6 +250,10 @@ FEATURES
         broken if you display it in a browser. But you should not mix this
         with wordwrap, since this could make undesirable results.
 
+    ANSI support
+        Allows you to decorate your tables with colors or bold/underline
+        when you display your tables to a terminal window.
+
     Errorreporting
         If you write a script in perl, and don't want users to be notified
         of the errormessages from Text::ASCIITable. You can easily turn of
@@ -266,7 +271,7 @@ UPDATING
     http://files.loopback.no/ASCIITable/
 
 VERSION
-    Current version is 0.09.
+    Current version is 0.10.
 
 COPYRIGHT
     Copyright 2002-2003 by Håkon Nessjøen. All rights reserved. This module

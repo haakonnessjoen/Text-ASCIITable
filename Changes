@@ -1,8 +1,15 @@
 Revision history for Perl extension Text::ASCIITable.
 
 
+0.10  Sat Mar 22 15:44:12 2003
+	- Fixed so headingText makes the table wider, if its wider than the
+	  table should originally be. Thanks to my friend Rune F. Akselsen
+	  for the nice and easy formula.
+	- Added allowANSI support. Works just like allowHTML just with ANSI
+	  codes. Exampletext with ansicodes: "Hi \33[1mThis is bold\33[m..."
+
 0.09  Sat Feb 15 12:24:42 2003
-	- Added HeadingText option, wich makes a Title on the top of
+	- Added headingText option, wich makes a Title on the top of
 	  the table, spanning all the columts to one large title.
 	- Added descriptions to all the possible options in the
 	  documentation.

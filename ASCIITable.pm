@@ -1,12 +1,10 @@
 package Text::ASCIITable;
 # by Håkon Nessjøen <lunatic@cpan.org>
 
-# BETA VERSION
-
 @ISA=qw(Exporter);
 @EXPORT = qw();
 @EXPORT_OK = qw();
-$VERSION = '0.09';
+$VERSION = '0.10';
 use Exporter;
 use strict;
 use Carp;
@@ -18,8 +16,13 @@ else { $hasWrap=0; }
 
 =head1 NAME
 
-Text::ASCIITable - Create a nice formatted table using ASCII characters. Preatty nifty if you want to output dynamic
-text to your console or other fixed-size displays, and at the same time display it in a nice readable, or "cool" way.
+Text::ASCIITable - Create a nice formatted table using ASCII characters.
+
+=head1 SHORT DESCRIPTION
+
+Pretty nifty if you want to output dynamic text to your console or other
+fixed-size-font displays, and at the same time it will display it in a
+nice human-readable, or "cool" way.
 
 =head1 SYNOPSIS
 
@@ -184,22 +187,45 @@ sub setColWidth {
 # drawing etc, below
 
 sub getColWidth {
-  my ($self,$colname) = @_;
+  my ($self,$colname,$ignore) = @_;
   my $pos = &find($colname,$self->{tbl_cols});
   my $maxsize = $self->count($colname);
-
+  my ($extra_for_all,$extrasome);
+  my %extratbl;
   do { $self->reperror("Could not find '$colname' in columnlist"); return 1; } unless defined($pos);
+
+  # Expand width of table if headingtext is wider than the rest
+  if (defined($self->{options}{headingText}) && !defined($ignore)) {
+    # tablewidth before any cols are expanded
+    my $width = $self->getTableWidth('ignore some stuff.. you know..') - 4;
+    if (length($self->{options}{headingText}) > $width) {
+      my $extra = length($self->{options}{headingText}) - $width;
+      my $cols = scalar(@{$self->{tbl_cols}});
+      $extra_for_all = int($extra/$cols);
+      $extrasome = $extra % $cols;
+      my $antall = 0;
+      foreach my $c (0..(scalar(@{$self->{tbl_cols}})-1)) {
+        my $col = @{$self->{tbl_cols}}[$c];
+        $extratbl{$col} = $extra_for_all;
+        if ($antall < $extrasome) {
+          $antall++;
+          $extratbl{$col}++;
+        }
+      }
+    }
+  }
+
   if ($self->{tbl_width_strict}{$colname} == 1 && int($self->{tbl_width}{$colname}) > 0) {
     # maxsize pluss the spaces on each side
-    return $self->{tbl_width}{$colname} + 2;
+    return $self->{tbl_width}{$colname} + 2 + (defined($extratbl{$colname}) ? $extratbl{$colname} : 0);
   } else {
     for my $row (@{$self->{tbl_rows}}) {
       $maxsize = $self->count(@{$row}[$pos]) if ($self->count(@{$row}[$pos]) > $maxsize);
     }
   }
 
-  # maxsize pluss the spaces on each side
-  return $maxsize + 2;
+  # maxsize pluss the spaces on each side + extra width from title
+  return $maxsize + 2 + (defined($extratbl{$colname}) ? $extratbl{$colname} : 0);
 }
 
 =head2 getTableWidth()
@@ -210,9 +236,10 @@ If you need to know how wide your table will be before you draw it. Use this fun
 
 sub getTableWidth {
   my $self = shift;
+  my $ignore = shift;
   my $totalsize = 1;
   for (@{$self->{tbl_cols}}) {
-    $totalsize += $self->getColWidth($_) + 1;
+    $totalsize += $self->getColWidth($_,(defined($ignore) ? 'ignoreheading' : undef)) + 1;
   }
   return $totalsize;
 }
@@ -241,14 +268,9 @@ sub drawLine {
 
 =head2 setOptions(name,value)
 
-Use this to set options like: hide_FirstLine,hide_HeadLine,hide_HeadRow,hide_LastLine,reportErrors,allowHTML,alignHeadRow or
-drawRowLine.
+Use this to set options like: hide_FirstLine,reportErrors, etc.
 
   $t->setOptions('hide_HeadLine',1);
-
-When B<allowHTML> is set to 1, it makes it possible to use this table in a HTML page where you want links/colors on the 
-text inside the table. You can then use <B>hello</B> inside a row/columnname without the table-width to break apart.
-When using Text::ASCIITable on webpages, remember to use <PRE> before and after the output of this table.
 
 B<Possible Options>
 
@@ -268,7 +290,12 @@ tell you that things didn't go exactly as they should.
 =item allowHTML
 
 If you are going to use Text::ASCIITable to be shown on HTML pages, you should set this option to 1 when you are going
-to use HTML tags inside the rows, and you want the browser to handle the table correct.
+to use HTML tags to for example color the text inside the rows, and you want the browser to handle the table correct.
+
+=item allowANSI
+
+If you use ANSI codes like <ESC>[1mHi this is bold<ESC>[m or similar. This option will make the table to be
+displayed correct when showed in a ANSI compilant terminal. Set this to 1 to enable.
 
 =item alignHeadRow
 
@@ -287,7 +314,8 @@ of this line in the draw() function.
 
 Add a heading above the columnnames/rows wich uses the whole width of the table to output
 a heading/title to the table. The heading-part of the table is automaticly shown when
-headingText contains the chosen heading.
+the headingText option contains text. B<Note:> If this text is so long that it makes the
+table wider, it will not hesitate to change width of columns that have "strict width".
 
 =item headingAlign
 
@@ -310,15 +338,23 @@ sub setOptions {
 }
 
 sub drawSingleColumnRow {
-  my ($self,$text,$start,$stop,$align) = @_;
+  my ($self,$text,$start,$stop,$align,$opt) = @_;
   do { $self->reperror("Missing reqired parameters"); return 1; } unless defined($text);
 
   my $contents = $start;
+  my $width = 0;
+  # ok this is a bad shortcut, but 'till i get up with a better one, I use this.
+  if (($self->getTableWidth() - 4) < length($text) && $opt eq 'title') {
+    $width = length($text);
+  }
+  else {
+    $width = $self->getTableWidth() - 4;
+  }
   $contents .= ' '.$self->align(
                        $text,
                        &iif($align,'left'),
-                       ($self->getTableWidth() - 4),
-                       ($self->{options}{allowHTML}?0:1)
+                       $width,
+                       ($self->{options}{allowHTML} || $self->{options}{allowANSI}?0:1)
                    ).' ';
   return $contents.$stop."\n";
 }
@@ -337,21 +373,21 @@ sub drawRow {
                          $text,
                          &iif($self->{tbl_align}{@{$self->{tbl_cols}}[$i]},'left'),
                          $self->getColWidth(@{$self->{tbl_cols}}[$i])-2,
-                         ($self->{options}{allowHTML}?0:1)
+                         ($self->{options}{allowHTML} || $self->{options}{allowANSI}?0:1)
                        ).' ';
     } elsif ($isheader == 1) {
       $contents .= ' '.$self->align(
                          $text,
                          $self->{options}{alignHeadRow},
                          $self->getColWidth(@{$self->{tbl_cols}}[$i])-2,
-                         ($self->{options}{allowHTML}?0:1)
+                         ($self->{options}{allowHTML} || $self->{options}{allowANSI}?0:1)
                        ).' ';
     } else {
       $contents .= ' '.$self->align(
                          $text,
                          'left',
                          $self->getColWidth(@{$self->{tbl_cols}}[$i])-2,
-                         ($self->{options}{allowHTML}?0:1)
+                         ($self->{options}{allowHTML} || $self->{options}{allowANSI}?0:1)
                        ).' ';
     }
     $contents .= $delim if ($i != scalar(@{$row}) - 1);
@@ -490,7 +526,7 @@ sub draw {
 
   if (defined($self->{options}{headingText})) {
     $contents .= $self->drawLine(&iif($tstart,'.'),&iif($tstop,'.'),$tline,$tline) unless $self->{options}{hide_FirstLine};
-    $contents .= $self->drawSingleColumnRow($self->{options}{headingText},&iif($self->{options}{headingStartChar},'|'),&iif($self->{options}{headingStopChar},'|'),&iif($self->{options}{headingAlign},'center'));
+    $contents .= $self->drawSingleColumnRow($self->{options}{headingText},&iif($self->{options}{headingStartChar},'|'),&iif($self->{options}{headingStopChar},'|'),&iif($self->{options}{headingAlign},'center'),'title');
     $contents .= $self->drawLine(&iif($mstart,' >'),&iif($mstop,'< '),$mline,$mdelim) unless $self->{options}{hide_HeadLine};
   }
   else {
@@ -511,12 +547,16 @@ sub draw {
 
 # nifty subs
 
-# Replaces length() because of optional HTML stripping
+# Replaces length() because of optional HTML and ANSI stripping
 sub count {
   my $self = shift;
   my $moo = shift;
   if ($self->{options}{allowHTML}) {
     $moo =~ s/<.+?>//g;
+    return length($moo);
+  }
+  elsif ($self->{options}{allowANSI}) {
+    $moo =~ s/\33\[(\d+(;\d+)?)?m//g;
     return length($moo);
   }
   else {
@@ -605,6 +645,11 @@ But if you enable allowHTML. You are able to write html tags inside the rows wit
 output being broken if you display it in a browser. But you should not mix this with
 wordwrap, since this could make undesirable results.
 
+=item ANSI support
+
+Allows you to decorate your tables with colors or bold/underline when you display
+your tables to a terminal window.
+
 =item Errorreporting
 
 If you write a script in perl, and don't want users to be notified of the errormessages
@@ -627,7 +672,7 @@ Do you want to know when new versions are out, etc? Go to http://files.loopback.
 
 =head1 VERSION
 
-Current version is 0.09.
+Current version is 0.10.
 
 =head1 COPYRIGHT
 
@@ -641,4 +686,3 @@ you can redistribute it and/or modify it under the same terms as Perl itself.
 Text::FormatTable, Text::Table
 
 =cut
-
