@@ -1,5 +1,15 @@
 Revision history for Perl extension Text::ASCIITable.
 
+0.16  Thi Sep 22 18:41:00 2005
+	- Fixed bug that made warnings of uninitialized variables when you added
+	  a cell with an undefined value. Therefore a new option 'undef_as' variable
+	  was added. Bug ref: http://rt.cpan.org/NoAuth/Bug.html?id=14702
+	- Added the possibility to add several rows with addRow using array of
+	  arrayrefs. Wish ref: http://rt.cpan.org/NoAuth/Bug.html?id=14703
+	- Updated the documentation to use 'package->new()' instead of 'new package()'
+	- Added support for chaining methods. Added as an option for backwards
+	  compatibility. Wish ref: http://rt.cpan.org/NoAuth/Bug.html?id=14703
+
 0.15  Tue Apr 06 04:00:00 2004
 	- Added overloading of @{} so you can use push to add rows.
 	- Fixed a small unharmful bug in addRow.
@@ -26,7 +36,7 @@ Revision history for Perl extension Text::ASCIITable.
 	- Fixed a bug which prevented you to have ANSI/HTML-codes in the
 	  beginning and end of a rowline and in headingText.
 	- Added support for cutting the table for page-viewing. With a max
-	  width. Thanks to Khemir Nadim ibn Hamouda <nadim@khemir.net> for
+	  width. Thanks to Khemir Nadim ibn Hamouda <nadim at khemir.net> for
 	  the code and the idea.
 
 0.12  Sat Jan 17 00:01:21 2004

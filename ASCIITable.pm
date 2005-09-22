@@ -4,7 +4,7 @@ package Text::ASCIITable;
 @ISA=qw(Exporter);
 @EXPORT = qw();
 @EXPORT_OK = qw();
-$VERSION = '0.15';
+$VERSION = '0.16';
 use Exporter;
 use strict;
 use Carp;
@@ -24,7 +24,7 @@ nice human-readable, or "cool" way.
 =head1 SYNOPSIS
 
   use Text::ASCIITable;
-  $t = new Text::ASCIITable;
+  $t = Text::ASCIITable->new();
   $t->setCols('Nickname','Name');
   $t->addRow('Lunatic-|','Håkon Nessjøen');
   $t->addRow('tesepe','William Viker');
@@ -40,10 +40,10 @@ nice human-readable, or "cool" way.
 Initialize a new table. You can specify output-options. For more options, check out the usage for setOptions(name,value)
 
   Usage:
-  $t = new Text::ASCIITable;
+  $t = Text::ASCIITable->new();
 
   Or with options:
-  $t = new Text::ASCIITable({ hide_Lastline => 1, reportErrors => 0});
+  $t = Text::ASCIITable->new({ hide_Lastline => 1, reportErrors => 0});
 
 =cut
 
@@ -69,6 +69,8 @@ sub new {
 
   $self->{options}{reportErrors} = $self->{options}{reportErrors} || 1; # default setting
   $self->{options}{alignHeadRow} = $self->{options}{alignHeadRow} || 'auto'; # default setting
+  $self->{options}{undef_as} = $self->{options}{undef_as} || ''; # default setting
+  $self->{options}{chaining} = $self->{options}{chaining} || 0; # default setting
 
   bless $self;
 
@@ -86,10 +88,10 @@ B<Note> that you cannot add Cols after you have added a row. Multiline columnnam
 
 sub setCols {
   my $self = shift;
-  do { $self->reperror("setCols needs an array"); return 1; } unless defined($_[0]);
+  do { $self->reperror("setCols needs an array"); return $self->{options}{chaining} ? $self : 1; } unless defined($_[0]);
   @_ = @{$_[0]} if (ref($_[0]) eq 'ARRAY');
-  do { $self->reperror("setCols needs an array"); return 1; } unless scalar(@_) != 0;
-  do { $self->reperror("Cannot edit cols at this state"); return 1; } unless scalar(@{$self->{tbl_rows}}) == 0;
+  do { $self->reperror("setCols needs an array"); return $self->{options}{chaining} ? $self : 1; } unless scalar(@_) != 0;
+  do { $self->reperror("Cannot edit cols at this state"); return $self->{options}{chaining} ? $self : 1; } unless scalar(@{$self->{tbl_rows}}) == 0;
 
   my @lines = map { [ split(/\n/,$_) ] } @_;
 
@@ -106,7 +108,7 @@ sub setCols {
 	@{$self->{tbl_multilinecols}} = @out if ($max);
   $self->{tbl_colsismultiline} = $max;
 
-  return undef;
+  return $self->{options}{chaining} ? $self : undef;
 }
 
 =head2 addRow(@collist)
@@ -119,7 +121,7 @@ have 3 items in it. And so on. Should be self explanatory. The strings can conta
 
 This module is also overloaded to accept push. To construct a table with the use of overloading you might do the following:
 
-  $t = new Text::ASCIITable;
+  $t = Text::ASCIITable->new();
   $t->setCols('one','two','three','four');
   push @$t, ( "one\ntwo" ) x 4; # Replaces $t->addrow();
   print $t;                     # Replaces print $t->draw();
@@ -132,21 +134,39 @@ This module is also overloaded to accept push. To construct a table with the use
    | two | two | two   | two  |  # with text are one singe row.
    '=----+-----+-------+-----='
 
+There is also possible to give this function an array of arrayrefs and hence support the output from
+DBI::selectall_arrayref($sql) without changes.
+
+  Example of multiple-rows pushing:
+  $t->addrow([
+    [ 1, 2, 3 ],
+    [ 4, 5, 6 ],
+    [ 7, 8, 9 ],
+  ]);
+
 =cut
 
 sub addRow {
   my $self = shift;
   @_ = @{$_[0]} if (ref($_[0]) eq 'ARRAY');
-  do { $self->reperror("Received too many columns"); return 1; } if scalar(@_) > scalar(@{$self->{tbl_cols}});
+  do { $self->reperror("Received too many columns"); return $self->{options}{chaining} ? $self : 1; } if scalar(@_) > scalar(@{$self->{tbl_cols}});
   my (@in,@out,@lines,$max);
+
+	if (scalar(@_) > 0 && ref($_[0]) eq 'ARRAY') {
+		foreach my $row (@_) {
+			$self->addRow($row);
+		}
+		return $self->{options}{chaining} ? $self : undef;
+	}
 
   # Fill out row, if columns are missing (requested) Mar 21  2004 by a anonymous person
   while (scalar(@_) < scalar(@{$self->{tbl_cols}})) {
     push @_, ' ';
   }
 
-  # Word wrapping:
+  # Word wrapping & undef-replacing
   foreach my $c (0..$#_) {
+		$_[$c] = $self->{options}{undef_as} unless defined $_[$c]; # requested by david@landgren.net/dland@cpan.org - https://rt.cpan.org/NoAuth/Bugs.html?Dist=Text-ASCIITable
     my $width = defined($self->{tbl_width}{@{$self->{tbl_cols}}[$c]}) ? $self->{tbl_width}{@{$self->{tbl_cols}}[$c]} : 0;
     if ($width > 0) {
       $in[$c] = wrap($_[$c],$width);
@@ -156,7 +176,7 @@ sub addRow {
   }
 
   # Multiline support:
-  @lines = map { [ split(/\n/,$_) ] } @in;
+  @lines = map { [ split /\n/ ] } @in;
   $max=0;
 
   grep {$max = scalar(@{$_}) if scalar(@{$_}) > $max} @lines;
@@ -171,7 +191,7 @@ sub addRow {
   # Rowlinesupport:
   $self->{tbl_rowline}{scalar(@{$self->{tbl_rows}})} = 1;
 
-  return undef;
+  return $self->{options}{chaining} ? $self : undef;
 }
 
 sub addrow_overload {
@@ -196,18 +216,18 @@ center, right, auto or your own subroutine. (Hint: Using auto(default), aligns n
 
 sub alignCol {
   my ($self,$col,$direction) = @_;
-  do { $self->reperror("alignCol is missing parameter(s)"); return 1; } unless defined($col) && defined($direction) || (defined($col) && ref($col) eq 'HASH');
-  do { $self->reperror("Could not find '$col' in columnlist"); return 1; } unless defined(&find($col,$self->{tbl_cols})) || (defined($col) && ref($col) eq 'HASH');
+  do { $self->reperror("alignCol is missing parameter(s)"); return $self->{options}{chaining} ? $self : 1; } unless defined($col) && defined($direction) || (defined($col) && ref($col) eq 'HASH');
+  do { $self->reperror("Could not find '$col' in columnlist"); return $self->{options}{chaining} ? $self : 1; } unless defined(&find($col,$self->{tbl_cols})) || (defined($col) && ref($col) eq 'HASH');
 
   if (ref($col) eq 'HASH') {
     for (keys %{$col}) {
-      do { $self->reperror("Could not find '$_' in columnlist"); return 1; } unless defined(&find($_,$self->{tbl_cols}));
+      do { $self->reperror("Could not find '$_' in columnlist"); return $self->{options}{chaining} ? $self : 1; } unless defined(&find($_,$self->{tbl_cols}));
       $self->{tbl_align}{$_} = $col->{$_};
     }
   } else {
     $self->{tbl_align}{$col} = $direction;
   }
-  return undef;
+  return $self->{options}{chaining} ? $self : undef;
 }
 
 =head2 alignColName($col,$direction)
@@ -219,11 +239,11 @@ or a subroutine) (Hint: Overrides the 'alignHeadRow' option for the specified co
 
 sub alignColName {
   my ($self,$col,$direction) = @_;
-  do { $self->reperror("alignColName is missing parameter(s)"); return 1; } unless defined($col) && defined($direction);
-  do { $self->reperror("Could not find '$col' in columnlist"); return 1; } unless defined(&find($col,$self->{tbl_cols}));
+  do { $self->reperror("alignColName is missing parameter(s)"); return $self->{options}{chaining} ? $self : 1; } unless defined($col) && defined($direction);
+  do { $self->reperror("Could not find '$col' in columnlist"); return $self->{options}{chaining} ? $self : 1; } unless defined(&find($col,$self->{tbl_cols}));
 
   $self->{tbl_colalign}{$col} = $direction;
-  return undef;
+  return $self->{options}{chaining} ? $self : undef;
 }
 
 =head2 setColWidth($col,$width,$strict)
@@ -238,14 +258,14 @@ If last parameter is 1, the column will be set to the specified width, even if n
 
 sub setColWidth {
   my ($self,$col,$width,$strict) = @_;
-  do { $self->reperror("setColWidth is missing parameter(s)"); return 1; } unless defined($col) && defined($width);
-  do { $self->reperror("Could not find '$col' in columnlist"); return 1; } unless defined(&find($col,$self->{tbl_cols}));
-  do { $self->reperror("Cannot change width at this state"); return 1; } unless scalar(@{$self->{tbl_rows}}) == 0;
+  do { $self->reperror("setColWidth is missing parameter(s)"); return $self->{options}{chaining} ? $self : 1; } unless defined($col) && defined($width);
+  do { $self->reperror("Could not find '$col' in columnlist"); return $self->{options}{chaining} ? $self : 1; } unless defined(&find($col,$self->{tbl_cols}));
+  do { $self->reperror("Cannot change width at this state"); return $self->{options}{chaining} ? $self : 1; } unless scalar(@{$self->{tbl_rows}}) == 0;
 
   $self->{tbl_width}{$col} = int($width);
   $self->{tbl_width_strict}{$col} = $strict ? 1 : 0;
 
-  return undef;
+  return $self->{options}{chaining} ? $self : undef;
 }
 
 sub headingWidth {
@@ -393,7 +413,8 @@ to use HTML tags to for example color the text inside the rows, and you want the
 =item allowANSI
 
 If you use ANSI codes like <ESC>[1mHi this is bold<ESC>[m or similar. This option will make the table to be
-displayed correct when showed in a ANSI compilant terminal. Set this to 1 to enable.
+displayed correct when showed in a ANSI compilant terminal. Set this to 1 to enable. There is an example of ANSI support
+in this package, named ansi-example.pl.
 
 =item alignHeadRow
 
@@ -435,6 +456,30 @@ to make support for having characters or codes inside the table that are not sho
 screen to the user, so the table should not count these characters. This could be for example
 HTML tags, or ANSI codes. Though those two examples are alredy supported internally with the
 allowHTML and allowANSI, options. This option expects a CODE reference. (\&callback_function)
+
+=item undef_as
+
+Sets the replacing string that replaces an undef value sent to addRow() (or even the overloaded
+push version of addRow()). The default value is an empty string ''. An example of use would be 
+to set it to '(undef)', to show that the input really was undefined.
+
+
+=item chaining
+
+Set this to 1 to support chainging of methods. The default is 0, where the methods return 1 if
+they come upon an error as mentioned in the reportErrors option description.
+
+  Usage example:
+  print Text::ASCIITable->new({ chaining => 1 })
+    ->setCols('One','Two','Three')
+    ->addRow([
+      [ 1, 2, 3 ],
+      [ 4, 5, 6 ],
+      [ 7, 8, 9 ],
+      ])
+    ->draw();
+
+Note that ->draw() can be omitted, since Text::ASCIITable is overloaded to print the table by default.
 
 =back
 
@@ -657,7 +702,7 @@ With Options:
    | col1 | col2 |
    |-===========-|
    | info | info |
-   |=-----+-----=| <-- between each row
+   |=-----+-----=| <-- rowseperator between each row
    | info | info |
    '=-----------='
 
@@ -687,7 +732,7 @@ This is a feature to use if you are not happy with the internal allowHTML or all
 support. Given is an example of how you make a count-callback that makes ASCIITable support
 ANSI codes inside the table. (would make the same result as setting allowANSI to 1)
 
-  $t->setOptions('cb_count',\&myallowansi);
+  $t->setOptions('cb_count',\&myallowansi_cb);
   sub myallowansi_cb {
     $_=shift;
     s/\33\[(\d+(;\d+)?)?[musfwhojBCDHRJK]//g;
@@ -844,17 +889,17 @@ sub TIEARRAY {
   # ok.. I couldn't figure a better way to get to $self
   # from inside these functions. So please tell me how to
   # really do it. This must be a stupid way of doing it.
-  return bless { imstupid => $self } , ref $self;
+  return bless { workaround => $self } , ref $self;
 }
 sub FETCH {
-  shift()->{imstupid}->reperror('usage: push @$t,qw{ one more row };');
+  shift()->{workaround}->reperror('usage: push @$t,qw{ one more row };');
   return undef;
 }
 sub STORE {
   my $self = shift;
   my ($index, $value) = @_;
 
-  shift()->{imstupid}->reperror('usage: push @$t,qw{ one more row };');
+  shift()->{workaround}->reperror('usage: push @$t,qw{ one more row };');
 }
 sub FETCHSIZE {
   my $self = shift;
@@ -867,7 +912,7 @@ sub STORESIZE {
 
 # PodMaster should be really happy now, since this was in his wishlist. (ref: http://perlmonks.thepen.com/338456.html)
 sub PUSH {
-  my $self = shift()->{imstupid};
+  my $self = shift()->{workaround};
   my @list = @_;
 
   if (scalar(@list) > scalar(@{$self->{tbl_cols}})) {
@@ -885,7 +930,7 @@ sub reperror {
 # Best way I could think of, to search the array.. Please tell me if you got a better way.
 sub find {
   return undef unless defined $_[1];
-  grep {return $_ if @{$_[1]}[$_] eq $_[0];} (0..scalar(@{$_[1]}));
+  grep {return $_ if @{$_[1]}[$_] eq $_[0];} (0..scalar(@{$_[1]})-1);
   return undef;
 }
 
@@ -957,7 +1002,7 @@ Håkon Nessjøen, <lunatic@cpan.org>
 
 =head1 VERSION
 
-Current version is 0.15.
+Current version is 0.16.
 
 =head1 COPYRIGHT
 

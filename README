@@ -8,7 +8,7 @@ SHORT DESCRIPTION
 
 SYNOPSIS
       use Text::ASCIITable;
-      $t = new Text::ASCIITable;
+      $t = Text::ASCIITable->new();
       $t->setCols('Nickname','Name');
       $t->addRow('Lunatic-|','Håkon Nessjøen');
       $t->addRow('tesepe','William Viker');
@@ -23,10 +23,10 @@ FUNCTIONS
     options, check out the usage for setOptions(name,value)
 
       Usage:
-      $t = new Text::ASCIITable;
+      $t = Text::ASCIITable->new();
 
       Or with options:
-      $t = new Text::ASCIITable({ hide_Lastline => 1, reportErrors => 0});
+      $t = Text::ASCIITable->new({ hide_Lastline => 1, reportErrors => 0});
 
   setCols(@cols)
     Define the columns for the table(compare with <TH> in HTML). For example
@@ -44,7 +44,7 @@ FUNCTIONS
     This module is also overloaded to accept push. To construct a table with
     the use of overloading you might do the following:
 
-      $t = new Text::ASCIITable;
+      $t = Text::ASCIITable->new();
       $t->setCols('one','two','three','four');
       push @$t, ( "one\ntwo" ) x 4; # Replaces $t->addrow();
       print $t;                     # Replaces print $t->draw();
@@ -56,6 +56,17 @@ FUNCTIONS
        | one | one | one   | one  |  # Note that theese two lines
        | two | two | two   | two  |  # with text are one singe row.
        '=----+-----+-------+-----='
+
+    There is also possible to give this function an array of arrayrefs and
+    hence support the output from DBI::selectall_arrayref($sql) without
+    changes.
+
+      Example of multiple-rows pushing:
+      $t->addrow([
+        [ 1, 2, 3 ],
+        [ 4, 5, 6 ],
+        [ 7, 8, 9 ],
+      ]);
 
   alignCol($col,$direction) or alignCol({col1 => direction1, col2 => direction2, ... })
     Given a columnname, it aligns all data to the given direction in the
@@ -115,6 +126,8 @@ FUNCTIONS
         If you use ANSI codes like <ESC>[1mHi this is bold<ESC>[m or
         similar. This option will make the table to be displayed correct
         when showed in a ANSI compilant terminal. Set this to 1 to enable.
+        There is an example of ANSI support in this package, named
+        ansi-example.pl.
 
     alignHeadRow
         Set wich direction the Column-names(in the headrow) are supposed to
@@ -158,6 +171,30 @@ FUNCTIONS
         example HTML tags, or ANSI codes. Though those two examples are
         alredy supported internally with the allowHTML and allowANSI,
         options. This option expects a CODE reference. (\&callback_function)
+
+    undef_as
+        Sets the replacing string that replaces an undef value sent to
+        addRow() (or even the overloaded push version of addRow()). The
+        default value is an empty string ''. An example of use would be to
+        set it to '(undef)', to show that the input really was undefined.
+
+    chaining
+        Set this to 1 to support chainging of methods. The default is 0,
+        where the methods return 1 if they come upon an error as mentioned
+        in the reportErrors option description.
+
+          Usage example:
+          print Text::ASCIITable->new({ chaining => 1 })
+            ->setCols('One','Two','Three')
+            ->addRow([
+              [ 1, 2, 3 ],
+              [ 4, 5, 6 ],
+              [ 7, 8, 9 ],
+              ])
+            ->draw();
+
+        Note that ->draw() can be omitted, since Text::ASCIITable is
+        overloaded to print the table by default.
 
   draw([@topdesign,@toprow,@middle,@middlerow,@bottom,@rowline])
     All the arrays containing the layout is optional. If you want to make
@@ -245,7 +282,7 @@ FUNCTIONS
        | col1 | col2 |
        |-===========-|
        | info | info |
-       |=-----+-----=| <-- between each row
+       |=-----+-----=| <-- rowseperator between each row
        | info | info |
        '=-----------='
 
@@ -277,7 +314,7 @@ FUNCTIONS
     count-callback that makes ASCIITable support ANSI codes inside the
     table. (would make the same result as setting allowANSI to 1)
 
-      $t->setOptions('cb_count',\&myallowansi);
+      $t->setOptions('cb_count',\&myallowansi_cb);
       sub myallowansi_cb {
         $_=shift;
         s/\33\[(\d+(;\d+)?)?[musfwhojBCDHRJK]//g;
@@ -352,7 +389,7 @@ AUTHOR
     Håkon Nessjøen, <lunatic@cpan.org>
 
 VERSION
-    Current version is 0.15.
+    Current version is 0.16.
 
 COPYRIGHT
     Copyright 2002-2003 by Håkon Nessjøen. All rights reserved. This module
