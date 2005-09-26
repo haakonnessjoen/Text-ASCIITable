@@ -2,6 +2,7 @@ Changes
 Makefile.PL
 MANIFEST
 META.yml
+ansi-example.pl
 ASCIITable.pm
 ASCIITable/Wrap.pm
 t/01_default.t
@@ -15,3 +16,4 @@ t/08_heading.t
 t/09_ansistrip.t
 t/10_pages.t
 t/11_overloading.t
+t/12_chaining.t

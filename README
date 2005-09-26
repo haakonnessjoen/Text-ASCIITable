@@ -50,19 +50,19 @@ FUNCTIONS
       print $t;                     # Replaces print $t->draw();
   
       Which would construct:
-       .=----+-----+-------+-----=.
+       .-----+-----+-------+------.
        | one | two | three | four |
        |=----+-----+-------+-----=|
        | one | one | one   | one  |  # Note that theese two lines
        | two | two | two   | two  |  # with text are one singe row.
-       '=----+-----+-------+-----='
+       '-----+-----+-------+------'
 
     There is also possible to give this function an array of arrayrefs and
     hence support the output from DBI::selectall_arrayref($sql) without
     changes.
 
       Example of multiple-rows pushing:
-      $t->addrow([
+      $t->addRow([
         [ 1, 2, 3 ],
         [ 4, 5, 6 ],
         [ 7, 8, 9 ],
@@ -72,14 +72,15 @@ FUNCTIONS
     Given a columnname, it aligns all data to the given direction in the
     table. This looks nice on numerical displays in a column. The column
     names in the table will be unaffected by the alignment. Possible
-    directions is: left, center, right, auto or your own subroutine. (Hint:
-    Using auto(default), aligns numbers right and text left)
+    directions is: left, center, right, justify, auto or your own
+    subroutine. (Hint: Using auto(default), aligns numbers right and text
+    left)
 
   alignColName($col,$direction)
     Given a columnname, it aligns the columnname in the row explaining
-    columnnames, to the given direction. (auto,left,right,center or a
-    subroutine) (Hint: Overrides the 'alignHeadRow' option for the specified
-    column.)
+    columnnames, to the given direction. (auto,left,right,center,justify or
+    a subroutine) (Hint: Overrides the 'alignHeadRow' option for the
+    specified column.)
 
   setColWidth($col,$width,$strict)
     Wordwrapping/strict size. Set a max-width(in chars) for a column. If
@@ -131,7 +132,7 @@ FUNCTIONS
 
     alignHeadRow
         Set wich direction the Column-names(in the headrow) are supposed to
-        point. Must be left, right, center, auto or a user-defined
+        point. Must be left, right, center, justify, auto or a user-defined
         subroutine.
 
     hide_FirstLine, hide_HeadLine, hide_LastLine
@@ -293,14 +294,14 @@ FUNCTIONS
     User-defined subroutines for aligning
 
     If you want to format your text more throughoutly than "auto", or think
-    you have a better way of centering text; you can make your own
+    you have a better way of aligning text; you can make your own
     subroutine.
 
       Here's a exampleroutine that aligns the text to the right.
   
       sub myownalign_cb {
         my ($text,$length,$count,$strict) = @_;
-        $text = (" " x ($length - $count)).$text;
+        $text = (" " x ($length - $count)) . $text;
         return substr($text,0,$length) if ($strict);
         return $text;
       }
@@ -345,10 +346,13 @@ FEATURES
         table.
 
     Text Aligning
-        Align the text in a column auto(matically), left, right or center.
-        Usually you want to align text to right if you only have numbers in
-        that row. The 'auto' direction aligns text to left, and numbers to
-        the right. You can also use your own subroutine as a
+        Align the text in a column auto(matically), left, right, center or
+        justify. Usually you want to align text to right if you only have
+        numbers in that row. The 'auto' direction aligns text to left, and
+        numbers to the right. The 'justify' alignment evens out your text on
+        each line, so the first and the last word always are at the
+        beginning and the end of the current line. This gives you the
+        newspaper paragraph look. You can also use your own subroutine as a
         callback-function to align your text.
 
     Multiline support in rows
@@ -389,7 +393,7 @@ AUTHOR
     Håkon Nessjøen, <lunatic@cpan.org>
 
 VERSION
-    Current version is 0.16.
+    Current version is 0.17.
 
 COPYRIGHT
     Copyright 2002-2003 by Håkon Nessjøen. All rights reserved. This module

@@ -4,7 +4,7 @@ package Text::ASCIITable;
 @ISA=qw(Exporter);
 @EXPORT = qw();
 @EXPORT_OK = qw();
-$VERSION = '0.16';
+$VERSION = '0.17';
 use Exporter;
 use strict;
 use Carp;
@@ -54,9 +54,9 @@ sub new {
 		tbl_cuts => [],
 		tbl_align => {},
 
-		des_top       => ['.=','=.','-','+'],
+		des_top       => ['.','.','-','+'],
 		des_middle    => ['|=','=|','-','+'],
-		des_bottom    => ["'=","='",'-','+'],
+		des_bottom    => ["'","'",'-','+'],
 		des_rowline   => ['|=','=|','-','+'],
 
 		des_toprow    => ['|','|','|'],
@@ -73,8 +73,6 @@ sub new {
   $self->{options}{chaining} = $self->{options}{chaining} || 0; # default setting
 
   bless $self;
-
-  tie @{$self->{tiedarr}}, $self;
 
   return $self;
 }
@@ -127,18 +125,18 @@ This module is also overloaded to accept push. To construct a table with the use
   print $t;                     # Replaces print $t->draw();
   
   Which would construct:
-   .=----+-----+-------+-----=.
+   .-----+-----+-------+------.
    | one | two | three | four |
    |=----+-----+-------+-----=|
    | one | one | one   | one  |  # Note that theese two lines
    | two | two | two   | two  |  # with text are one singe row.
-   '=----+-----+-------+-----='
+   '-----+-----+-------+------'
 
 There is also possible to give this function an array of arrayrefs and hence support the output from
 DBI::selectall_arrayref($sql) without changes.
 
   Example of multiple-rows pushing:
-  $t->addrow([
+  $t->addRow([
     [ 1, 2, 3 ],
     [ 4, 5, 6 ],
     [ 7, 8, 9 ],
@@ -195,14 +193,17 @@ sub addRow {
 }
 
 sub addrow_overload {
-  my $self = shift;
-  return $self->{tiedarr};
+   my $self = shift;
+   my @arr;
+   tie @arr, $self;#, $self;
+   return \@arr;
 }
+
 
 # backwardscompatibility, deprecated
 sub alignColRight {
   my ($self,$col) = @_;
-  do { $self->reperror("alignColRight is missing parameter(s)"); return 1; } unless defined($col);
+  do { $self->reperror("alignColRight is missing parameter(s)"); return $self->{options}{chaining} ? $self : 1; } unless defined($col);
   return $self->alignCol($col,'right');
 }
 
@@ -210,7 +211,7 @@ sub alignColRight {
 
 Given a columnname, it aligns all data to the given direction in the table. This looks nice on numerical displays
 in a column. The column names in the table will be unaffected by the alignment. Possible directions is: left,
-center, right, auto or your own subroutine. (Hint: Using auto(default), aligns numbers right and text left)
+center, right, justify, auto or your own subroutine. (Hint: Using auto(default), aligns numbers right and text left) 
 
 =cut
 
@@ -232,7 +233,7 @@ sub alignCol {
 
 =head2 alignColName($col,$direction)
 
-Given a columnname, it aligns the columnname in the row explaining columnnames, to the given direction. (auto,left,right,center
+Given a columnname, it aligns the columnname in the row explaining columnnames, to the given direction. (auto,left,right,center,justify
 or a subroutine) (Hint: Overrides the 'alignHeadRow' option for the specified column.)
 
 =cut
@@ -418,7 +419,7 @@ in this package, named ansi-example.pl.
 
 =item alignHeadRow
 
-Set wich direction the Column-names(in the headrow) are supposed to point. Must be left, right, center, auto or a user-defined subroutine.
+Set wich direction the Column-names(in the headrow) are supposed to point. Must be left, right, center, justify, auto or a user-defined subroutine.
 
 =item hide_FirstLine, hide_HeadLine, hide_LastLine
 
@@ -713,13 +714,13 @@ with $t->drawPage.
 B<User-defined subroutines for aligning>
 
 If you want to format your text more throughoutly than "auto", or think you
-have a better way of centering text; you can make your own subroutine.
+have a better way of aligning text; you can make your own subroutine.
 
   Here's a exampleroutine that aligns the text to the right.
   
   sub myownalign_cb {
     my ($text,$length,$count,$strict) = @_;
-    $text = (" " x ($length - $count)).$text;
+    $text = (" " x ($length - $count)) . $text;
     return substr($text,0,$length) if ($strict);
     return $text;
   }
@@ -869,6 +870,31 @@ sub align {
     $text = $text.(" " x ($length - $self->count($text)));
     return substr($text,0,$length) if ($strict);
     return $text;
+  } elsif ($dir =~ /justify/i) {
+		$text = substr($text,0,$length) if ($strict);
+		if (length($text) < $length) {
+			$text =~ s/^\s+//; # trailing whitespace
+			$text =~ s/\s+$//; # tailing whitespace
+
+			my @tmp = split(/\s+/,$text); # split them words
+
+			if (scalar(@tmp)) {
+				my $extra = $length - length(join('',@tmp)); # Length of text without spaces
+
+				my $modulus = $extra % (scalar(@tmp)); # modulus
+				$extra = int($extra / (scalar(@tmp))); # for each word
+
+				$text = '';
+				foreach my $word (@tmp) {
+					$text .= $word . (' ' x $extra); # each word
+					if ($modulus) {
+						$modulus--;
+						$text .= ' '; # the first $modulus words, to even out
+					}
+				}
+			}
+		}
+	  return $text; # either way, output text
   } elsif ($dir =~ /center/i) {
     my $left = ( $length - $self->count($text) ) / 2;
     # Someone tell me if this is matematecally totally wrong. :P
@@ -884,35 +910,25 @@ sub align {
 
 sub TIEARRAY {
   my $self = shift;
-  my $elemsize = shift;
 
-  # ok.. I couldn't figure a better way to get to $self
-  # from inside these functions. So please tell me how to
-  # really do it. This must be a stupid way of doing it.
-  return bless { workaround => $self } , ref $self;
+	return bless { workaround => $self } , ref $self;
 }
 sub FETCH {
-  shift()->{workaround}->reperror('usage: push @$t,qw{ one more row };');
+  shift->{workaround}->reperror('usage: push @$t,qw{ one more row };');
   return undef;
 }
 sub STORE {
-  my $self = shift;
+  my $self = shift->{workaround};
   my ($index, $value) = @_;
 
-  shift()->{workaround}->reperror('usage: push @$t,qw{ one more row };');
+  $self->reperror('usage: push @$t,qw{ one more row };');
 }
-sub FETCHSIZE {
-  my $self = shift;
-  return 0;
-}
-sub STORESIZE {
-  my $self = shift;
-  return;
-}
+sub FETCHSIZE {return 0;}
+sub STORESIZE {return;}
 
 # PodMaster should be really happy now, since this was in his wishlist. (ref: http://perlmonks.thepen.com/338456.html)
 sub PUSH {
-  my $self = shift()->{workaround};
+  my $self = shift->{workaround};
   my @list = @_;
 
   if (scalar(@list) > scalar(@{$self->{tbl_cols}})) {
@@ -922,6 +938,7 @@ sub PUSH {
 
   $self->addRow(@list);
 }
+
 sub reperror {
   my $self = shift;
   print STDERR Carp::shortmess(shift) if $self->{options}{reportErrors};
@@ -953,9 +970,11 @@ or even add a heading-part to the table.
 
 =item Text Aligning
 
-Align the text in a column auto(matically), left, right or center. Usually you want to align text
+Align the text in a column auto(matically), left, right, center or justify. Usually you want to align text
 to right if you only have numbers in that row. The 'auto' direction aligns text to left, and numbers
-to the right. You can also use your own subroutine as a callback-function to align your text.
+to the right. The 'justify' alignment evens out your text on each line, so the first and the last word
+always are at the beginning and the end of the current line. This gives you the newspaper paragraph look.
+You can also use your own subroutine as a callback-function to align your text.
  
 =item Multiline support in rows
 
@@ -1002,7 +1021,7 @@ Håkon Nessjøen, <lunatic@cpan.org>
 
 =head1 VERSION
 
-Current version is 0.16.
+Current version is 0.17.
 
 =head1 COPYRIGHT
 
