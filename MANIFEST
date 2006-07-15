@@ -1,10 +1,12 @@
 Changes
 Makefile.PL
+Build.PL
 MANIFEST
+README
 META.yml
 ansi-example.pl
-ASCIITable.pm
-ASCIITable/Wrap.pm
+lib/Text/ASCIITable.pm
+lib/Text/ASCIITable/Wrap.pm
 t/01_default.t
 t/02_custom.t
 t/03_options.t

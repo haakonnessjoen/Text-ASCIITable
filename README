@@ -8,19 +8,33 @@ SHORT DESCRIPTION
 
 SYNOPSIS
       use Text::ASCIITable;
-      $t = Text::ASCIITable->new();
-      $t->setCols('Nickname','Name');
-      $t->addRow('Lunatic-|','Håkon Nessjøen');
-      $t->addRow('tesepe','William Viker');
-      $t->addRow('espen','Espen Ursin-Holm');
-      $t->addRow('mamikk','Martin Mikkelsen');
-      $t->addRow('p33r','Espen A. Jütte');
-      print $t->draw(); 
+      $t = Text::ASCIITable->new({ headingText => 'Basket' });
+  
+      $t->setCols('Id','Name','Price');
+      $t->addRow(1,'Dummy product 1',24.4);
+      $t->addRow(2,'Dummy product 2',21.2);
+      $t->addRow(3,'Dummy product 3',12.3);
+      $t->addRowLine();
+      $t->addRow('','Total',57.9);
+      print $t;
+  
+      # Result:
+      .------------------------------.
+      |            Basket            |
+      +----+-----------------+-------+
+      | Id | Name            | Price |
+      +----+-----------------+-------+
+      |  1 | Dummy product 1 |  24.4 |
+      |  2 | Dummy product 2 |  21.2 |
+      |  3 | Dummy product 3 |  12.3 |
+      +----+-----------------+-------+
+      |    | Total           |  57.9 |
+      '----+-----------------+-------'
 
 FUNCTIONS
   new(options)
     Initialize a new table. You can specify output-options. For more
-    options, check out the usage for setOptions(name,value)
+    options, check out the usage for setOptions()
 
       Usage:
       $t = Text::ASCIITable->new();
@@ -67,6 +81,20 @@ FUNCTIONS
         [ 4, 5, 6 ],
         [ 7, 8, 9 ],
       ]);
+
+  addRowLine([$row])
+    Will add a line after the current row. As an argument, you may specify
+    after which row you want a line (first row is 1) or an array of row
+    numbers. (HINT: If you want a line after every row, read about the
+    drawRowLine option in setOptions())
+
+    Example without arguments: $t->addRow('one','two'¸'three');
+    $t->addRowLine(); $t->addRow('one','two'¸'three');
+
+    Example with argument: $t->addRow('one','two'¸'three');
+    $t->addRow('one','two'¸'three'); $t->addRow('one','two'¸'three');
+    $t->addRow('one','two'¸'three'); $t->addRowLine(1); # or multiple:
+    $t->addRowLine([2,3]);
 
   alignCol($col,$direction) or alignCol({col1 => direction1, col2 => direction2, ... })
     Given a columnname, it aligns all data to the given direction in the
@@ -393,7 +421,7 @@ AUTHOR
     Håkon Nessjøen, <lunatic@cpan.org>
 
 VERSION
-    Current version is 0.17.
+    Current version is 0.18.
 
 COPYRIGHT
     Copyright 2002-2003 by Håkon Nessjøen. All rights reserved. This module
@@ -401,5 +429,5 @@ COPYRIGHT
     same terms as Perl itself.
 
 SEE ALSO
-    Text::FormatTable, Text::Table
+    Text::FormatTable, Text::Table, Text::SimpleTable
 

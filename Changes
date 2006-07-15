@@ -1,5 +1,11 @@
 Revision history for Perl extension Text::ASCIITable.
 
+0.18  Sat Jul 15 00:00:00 2005
+	- Changed from ExtUtils::MakeMaker to Module::Build for better support for
+	  various platforms.
+	- Added the function addRowLine(), which allows you to add lines after any
+	  row.
+
 0.17  Tue Sep 27 01:00:00 2005
 	- Fixed a memory-leak in the overloaded tie-array. Thanks to Matt Trout and Andy
 	  Grundman in the Catalyst team for reporting, and submitting six.

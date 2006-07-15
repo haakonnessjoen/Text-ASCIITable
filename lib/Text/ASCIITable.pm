@@ -4,7 +4,7 @@ package Text::ASCIITable;
 @ISA=qw(Exporter);
 @EXPORT = qw();
 @EXPORT_OK = qw();
-$VERSION = '0.17';
+$VERSION = '0.18';
 use Exporter;
 use strict;
 use Carp;
@@ -24,20 +24,34 @@ nice human-readable, or "cool" way.
 =head1 SYNOPSIS
 
   use Text::ASCIITable;
-  $t = Text::ASCIITable->new();
-  $t->setCols('Nickname','Name');
-  $t->addRow('Lunatic-|','Håkon Nessjøen');
-  $t->addRow('tesepe','William Viker');
-  $t->addRow('espen','Espen Ursin-Holm');
-  $t->addRow('mamikk','Martin Mikkelsen');
-  $t->addRow('p33r','Espen A. Jütte');
-  print $t->draw(); 
+  $t = Text::ASCIITable->new({ headingText => 'Basket' });
+  
+  $t->setCols('Id','Name','Price');
+  $t->addRow(1,'Dummy product 1',24.4);
+  $t->addRow(2,'Dummy product 2',21.2);
+  $t->addRow(3,'Dummy product 3',12.3);
+  $t->addRowLine();
+  $t->addRow('','Total',57.9);
+  print $t;
+  
+  # Result:
+  .------------------------------.
+  |            Basket            |
+  +----+-----------------+-------+
+  | Id | Name            | Price |
+  +----+-----------------+-------+
+  |  1 | Dummy product 1 |  24.4 |
+  |  2 | Dummy product 2 |  21.2 |
+  |  3 | Dummy product 3 |  12.3 |
+  +----+-----------------+-------+
+  |    | Total           |  57.9 |
+  '----+-----------------+-------'
 
 =head1 FUNCTIONS
 
 =head2 new(options)
 
-Initialize a new table. You can specify output-options. For more options, check out the usage for setOptions(name,value)
+Initialize a new table. You can specify output-options. For more options, check out the usage for setOptions()
 
   Usage:
   $t = Text::ASCIITable->new();
@@ -53,11 +67,12 @@ sub new {
 		tbl_rows => [],
 		tbl_cuts => [],
 		tbl_align => {},
+		tbl_lines => {},
 
-		des_top       => ['.','.','-','+'],
-		des_middle    => ['|=','=|','-','+'],
+		des_top       => ['.','.','-','-'],
+		des_middle    => ['+','+','-','+'],
 		des_bottom    => ["'","'",'-','+'],
-		des_rowline   => ['|=','=|','-','+'],
+		des_rowline   => ['+','+','-','+'],
 
 		des_toprow    => ['|','|','|'],
 		des_middlerow => ['|','|','|'],
@@ -195,10 +210,49 @@ sub addRow {
 sub addrow_overload {
    my $self = shift;
    my @arr;
-   tie @arr, $self;#, $self;
+   tie @arr, $self;
    return \@arr;
 }
 
+=head2 addRowLine([$row])
+
+Will add a line after the current row. As an argument, you may specify after which row you want a line (first row is 1)
+or an array of row numbers. (HINT: If you want a line after every row, read about the drawRowLine option in setOptions())
+
+Example without arguments:
+  $t->addRow('one','two'¸'three');
+  $t->addRowLine();
+  $t->addRow('one','two'¸'three');
+
+Example with argument:
+  $t->addRow('one','two'¸'three');
+  $t->addRow('one','two'¸'three');
+  $t->addRow('one','two'¸'three');
+  $t->addRow('one','two'¸'three');
+  $t->addRowLine(1); # or multiple: $t->addRowLine([2,3]);
+
+=cut
+
+sub addRowLine {
+  my ($self,$row) = @_;
+  do { $self->reperror("rows not added yet"); return $self->{options}{chaining} ? $self : 1; } unless scalar(@{$self->{tbl_rows}}) > 0;
+
+	if (defined($row) && ref($row) eq 'ARRAY') {
+		foreach (@$row) {
+			$_=int($_);
+			$self->{tbl_lines}{$_} = 1;
+		}
+	}
+	elsif (defined($row)) {
+		$row = int($row);
+		do { $self->reperror("$row is higher than number of rows added"); return $self->{options}{chaining} ? $self : 1; } if ($row < 0 || $row > scalar(@{$self->{tbl_rows}}));
+		$self->{tbl_lines}{$row} = 1;
+	} else {
+		$self->{tbl_lines}{scalar(@{$self->{tbl_rows}})} = 1;
+	}
+
+	return $self->{options}{chaining} ? $self : undef;
+}
 
 # backwardscompatibility, deprecated
 sub alignColRight {
@@ -817,7 +871,10 @@ sub draw {
   for (@{$self->{tbl_rows}}) {
     $i++;
     $contents .= $self->getPart($page,$self->drawRow($_,0,$mrstart,$mrstop,$mrdelim));
-    $contents .= $self->getPart($page,$self->drawLine($rstart,$rstop,$rline,$rdelim)) if ($self->{options}{drawRowLine} && $self->{tbl_rowline}{$i} && ($i != scalar(@{$self->{tbl_rows}})));
+		if (($self->{options}{drawRowLine} && $self->{tbl_rowline}{$i} && ($i != scalar(@{$self->{tbl_rows}}))) || 
+				(defined($self->{tbl_lines}{$i}) && $self->{tbl_lines}{$i} && ($i != scalar(@{$self->{tbl_rows}})) && ($i != scalar(@{$self->{tbl_rows}})))) {
+	    $contents .= $self->getPart($page,$self->drawLine($rstart,$rstop,$rline,$rdelim)) 
+		}
   }
   $contents .= $self->getPart($page,$self->drawLine($bstart,$bstop,$bline,$bdelim)) unless $self->{options}{hide_LastLine};
 
@@ -1021,7 +1078,7 @@ Håkon Nessjøen, <lunatic@cpan.org>
 
 =head1 VERSION
 
-Current version is 0.17.
+Current version is 0.18.
 
 =head1 COPYRIGHT
 
@@ -1032,6 +1089,6 @@ you can redistribute it and/or modify it under the same terms as Perl itself.
 
 =head1 SEE ALSO
 
-Text::FormatTable, Text::Table
+Text::FormatTable, Text::Table, Text::SimpleTable
 
 =cut
