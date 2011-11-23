@@ -19,3 +19,4 @@ t/09_ansistrip.t
 t/10_pages.t
 t/11_overloading.t
 t/12_chaining.t
+t/13_utf8.t

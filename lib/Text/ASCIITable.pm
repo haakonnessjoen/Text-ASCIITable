@@ -4,12 +4,14 @@ package Text::ASCIITable;
 @ISA=qw(Exporter);
 @EXPORT = qw();
 @EXPORT_OK = qw();
-$VERSION = '0.18';
+$VERSION = '0.19';
 use Exporter;
 use strict;
 use Carp;
 use Text::ASCIITable::Wrap qw{ wrap };
 use overload '@{}' => 'addrow_overload', '""' => 'drawit';
+use Encode;
+use List::Util qw(reduce max sum);
 
 =head1 NAME
 
@@ -82,10 +84,11 @@ sub new {
 		options => $_[1] || { }
   };
 
-  $self->{options}{reportErrors} = $self->{options}{reportErrors} || 1; # default setting
+  $self->{options}{reportErrors} = defined($self->{options}{reportErrors}) ? $self->{options}{reportErrors} : 1; # default setting
   $self->{options}{alignHeadRow} = $self->{options}{alignHeadRow} || 'auto'; # default setting
   $self->{options}{undef_as} = $self->{options}{undef_as} || ''; # default setting
   $self->{options}{chaining} = $self->{options}{chaining} || 0; # default setting
+  $self->{options}{utf8} = defined($self->{options}{utf8}) ? $self->{options}{utf8} : 1; # default setting
 
   bless $self;
 
@@ -179,8 +182,9 @@ sub addRow {
 
   # Word wrapping & undef-replacing
   foreach my $c (0..$#_) {
-		$_[$c] = $self->{options}{undef_as} unless defined $_[$c]; # requested by david@landgren.net/dland@cpan.org - https://rt.cpan.org/NoAuth/Bugs.html?Dist=Text-ASCIITable
-    my $width = defined($self->{tbl_width}{@{$self->{tbl_cols}}[$c]}) ? $self->{tbl_width}{@{$self->{tbl_cols}}[$c]} : 0;
+    $_[$c] = $self->{options}{undef_as} unless defined $_[$c]; # requested by david@landgren.net/dland@cpan.org - https://rt.cpan.org/NoAuth/Bugs.html?Dist=Text-ASCIITable
+    my $colname = $self->{tbl_cols}[$c];
+    my $width = $self->{tbl_width}{$colname} || 0;
     if ($width > 0) {
       $in[$c] = wrap($_[$c],$width);
     } else {
@@ -190,11 +194,9 @@ sub addRow {
 
   # Multiline support:
   @lines = map { [ split /\n/ ] } @in;
-  $max=0;
-
-  grep {$max = scalar(@{$_}) if scalar(@{$_}) > $max} @lines;
+  $max = max map {scalar @$_} @lines;
   foreach my $num (0..($max-1)) {
-    my @tmp = map { defined(@{$_}[$num]) && length(@{$_}[$num]) ? @{$_}[$num] : '' } @lines;
+    my @tmp = map { defined(@{$_}[$num]) && $self->count(@{$_}[$num]) ? @{$_}[$num] : '' } @lines;
     push @out, [ @tmp ];
   }
 
@@ -326,71 +328,56 @@ sub setColWidth {
 sub headingWidth {
 	my $self = shift;
   my $title = $self->{options}{headingText};
-  if ($title =~ m/\n/) {
-    my $width=0;
-    my @lines = split(/\r?\n/,$title);
-    foreach my $line (@lines) {
-      if ((my $var = $self->count($line)) > $width) {
-        $width = $var;
-      }
-    }
-    return $width;
-  } else {
-    return $self->count($title);
-  }
+  return max map {$self->count($_)} split /\r?\n/, $self->{options}{headingText};
 }
 
 # drawing etc, below
-# This function must be totally rewritten one day, it is
-# really slow, and ... dumb. ;)
 sub getColWidth {
-  my ($self,$colname,$ignore) = @_;
-  my $pos = &find($colname,$self->{tbl_cols});
-  my ($extra_for_all,$extrasome);
-  my %extratbl;
-  do { $self->reperror("Could not find '$colname' in columnlist"); } unless defined($pos);
+  my ($self,$colname) = @_;
+  $self->reperror("Could not find '$colname' in columnlist") unless defined find($colname, $self->{tbl_cols});
 
-  # Expand width of table if headingtext is wider than the rest
-  if (defined($self->{options}{headingText}) && !defined($ignore)) {
-    # tablewidth before any cols are expanded
-    my $width = $self->getTableWidth('ignore some stuff.. you know..') - 4;
-    my $headingwidth = $self->headingWidth();
-    if ($headingwidth > $width) {
-      my $extra = $headingwidth - $width;
-      my $cols = scalar(@{$self->{tbl_cols}});
-      $extra_for_all = int($extra/$cols);
-      $extrasome = $extra % $cols; # takk for hjelpa rune :P
-      my $antall = 0;
-      foreach my $c (0..(scalar(@{$self->{tbl_cols}})-1)) {
-        my $col = @{$self->{tbl_cols}}[$c];
-        $extratbl{$col} = $extra_for_all;
-        if ($antall < $extrasome) {
-          $antall++;
-          $extratbl{$col}++;
-        }
-      }
-    }
-  }
-
-  return $self->{cache_width}{$colname} if defined $self->{cache_width}{$colname} && !defined($self->{options}{headingText}); # Unable to cache with headingText
-
-  # multiline support in columnnames
-  my $maxsize=0;
-  grep { $maxsize = $self->count($_) if $self->count($_) > $maxsize } split(/\n/,$colname); # bugfix 0.13
-
-  if (defined($self->{tbl_width_strict}{$colname}) && ($self->{tbl_width_strict}{$colname} == 1) && int($self->{tbl_width}{$colname}) > 0) {
-    # maxsize plus the spaces on each side
-    $self->{cache_width}{$colname} = $self->{tbl_width}{$colname} + 2 + (defined($extratbl{$colname}) ? $extratbl{$colname} : 0);
-    return $self->{cache_width}{$colname};
-  } else {
-    for my $row (@{$self->{tbl_rows}}) {
-      $maxsize = $self->count(@{$row}[$pos]) if ($self->count(@{$row}[$pos]) > $maxsize);
-    }
-  }
-
-  # maxsize pluss the spaces on each side + extra width from title
-  $self->{cache_width}{$colname} = $maxsize + 2 + (defined($extratbl{$colname}) ? $extratbl{$colname} : 0);
   return $self->{cache_width}{$colname};
+}
+
+# Width-calculating functions rewritten for more speed by Alexey Sheynuk <asheynuk@iponweb.net>
+# Thanks :)
+sub calculateColWidths {
+  my ($self) = @_;
+  $self->{cache_width} = undef;
+  my $cols = $self->{tbl_cols};
+  foreach my $c (0..$#{$cols}) {
+    my $colname = $cols->[$c];
+    if (defined($self->{tbl_width_strict}{$colname}) && ($self->{tbl_width_strict}{$colname} == 1) && int($self->{tbl_width}{$colname}) > 0) {
+      # maxsize plus the spaces on each side
+      $self->{cache_width}{$colname} = $self->{tbl_width}{$colname} + 2;
+    } else {
+      my $colwidth = max((map {$self->count($_)} split(/\n/,$colname)), (map {$self->count($_->[$c])} @{$self->{tbl_rows}}));
+      $self->{cache_width}{$colname} = $colwidth + 2;
+    }
+  }
+  $self->addExtraHeadingWidth;
+}
+
+sub addExtraHeadingWidth {
+  my ($self) = @_;
+  return unless defined $self->{options}{headingText};
+  my $tablewidth = -3 + sum map {$_ + 1} values %{$self->{cache_width}};
+  my $headingwidth = $self->headingWidth();
+  if ($headingwidth > $tablewidth) {
+    my $extra = $headingwidth - $tablewidth;
+    my $cols = scalar(@{$self->{tbl_cols}});
+    my $extra_for_all = int($extra/$cols);
+    my $extrasome = $extra % $cols;
+    my $antall = 0;
+    foreach my $col (@{$self->{tbl_cols}}) {
+      my $extrawidth = $extra_for_all;
+      if ($antall < $extrasome) {
+        $antall++;
+        $extrawidth++;
+      }
+      $self->{cache_width}{$col} += $extrawidth;
+    }
+  }
 }
 
 =head2 getTableWidth()
@@ -401,14 +388,11 @@ If you need to know how wide your table will be before you draw it. Use this fun
 
 sub getTableWidth {
   my $self = shift;
-  my $ignore = shift;
   my $totalsize = 1;
-  if (!defined($self->{cache_TableWidth}) && !$ignore) {
+  if (!defined($self->{cache_TableWidth})) {
+    $self->calculateColWidths;
     grep {$totalsize += $self->getColWidth($_,undef) + 1} @{$self->{tbl_cols}};
     $self->{cache_TableWidth} = $totalsize;
-  } elsif ($ignore) {
-    grep {$totalsize += $self->getColWidth($_,'ignoreheading') + 1} @{$self->{tbl_cols}};
-    return $totalsize;
   }
   return $self->{cache_TableWidth};
 }
@@ -845,6 +829,7 @@ sub draw {
   my $contents=""; $page = defined($page) ? $page : 0;
 
   delete $self->{cache_TableWidth}; # Clear cache
+  $self->calculateColWidths;
 
   $contents .= $self->getPart($page,$self->drawLine($tstart,$tstop,$tline,$tdelim)) unless $self->{options}{hide_FirstLine};
   if (defined($self->{options}{headingText})) {
@@ -899,6 +884,7 @@ sub count {
   $str =~ s/<.+?>//g if $self->{options}{allowHTML};
   $str =~ s/\33\[(\d+(;\d+)?)?[musfwhojBCDHRJK]//g if $self->{options}{allowANSI}; # maybe i should only have allowed ESC[#;#m and not things not related to
   $str =~ s/\33\([0B]//g if $self->{options}{allowANSI};                           # color/bold/underline.. But I want to give people as much room as they need.
+  $str = decode("utf8", $str) if $self->{options}{utf8};
 
   return length($str);
 }
@@ -908,7 +894,7 @@ sub align {
   my ($self,$text,$dir,$length,$strict) = @_;
 
   if ($dir =~ /auto/i) {
-    if ($text =~ /^-?\d+(\.\d+)*[%\w]?$/) {
+    if ($text =~ /^-?\d+([.,]\d+)*[%\w]?$/) {
       $dir = 'right';
     } else {
       $dir = 'left';
@@ -920,23 +906,29 @@ sub align {
     # Removed in v0.14 # return 'CB-LEN-ERR' if ($self->count($ret) != $length);
     return $ret;
   } elsif ($dir =~ /right/i) {
-    $text = (" " x ($length - $self->count($text))).$text;
-    return substr($text,0,$length) if ($strict);
+    my $visuallen = $self->count($text);
+    my $reallen = length($text);
+    $text = (" " x ($length - $visuallen)).$text;
+    return substr($text,0,$length - ($visuallen-$reallen)) if ($strict);
     return $text;
   } elsif ($dir =~ /left/i) {
-    $text = $text.(" " x ($length - $self->count($text)));
-    return substr($text,0,$length) if ($strict);
+    my $visuallen = $self->count($text);
+    my $reallen = length($text);
+    $text = $text.(" " x ($length - $visuallen));
+    return substr($text,0,$length - ($visuallen-$reallen)) if ($strict);
     return $text;
   } elsif ($dir =~ /justify/i) {
-		$text = substr($text,0,$length) if ($strict);
-		if (length($text) < $length) {
+    		my $visuallen = $self->count($text);
+		my $reallen = length($text);
+		$text = substr($text,0,$length - ($visuallen-$reallen)) if ($strict);
+		if ($self->count($text) < $length - ($visuallen-$reallen)) {
 			$text =~ s/^\s+//; # trailing whitespace
 			$text =~ s/\s+$//; # tailing whitespace
 
 			my @tmp = split(/\s+/,$text); # split them words
 
 			if (scalar(@tmp)) {
-				my $extra = $length - length(join('',@tmp)); # Length of text without spaces
+				my $extra = $length - $self->count(join('',@tmp)); # Length of text without spaces
 
 				my $modulus = $extra % (scalar(@tmp)); # modulus
 				$extra = int($extra / (scalar(@tmp))); # for each word
@@ -953,10 +945,12 @@ sub align {
 		}
 	  return $text; # either way, output text
   } elsif ($dir =~ /center/i) {
-    my $left = ( $length - $self->count($text) ) / 2;
+    my $visuallen = $self->count($text);
+    my $reallen = length($text);
+    my $left = ( $length - $visuallen ) / 2;
     # Someone tell me if this is matematecally totally wrong. :P
     $left = int($left) + 1 if ($left != int($left) && $left > 0.4);
-    my $right = int(( $length - $self->count($text) ) / 2);
+    my $right = int(( $length - $visuallen ) / 2);
     $text = (" " x $left).$text.(" " x $right);
     return substr($text,0,$length) if ($strict);
     return $text;
@@ -998,7 +992,6 @@ sub PUSH {
 
 sub reperror {
   my $self = shift;
-  print STDERR Carp::shortmess(shift) if $self->{options}{reportErrors};
 }
 
 # Best way I could think of, to search the array.. Please tell me if you got a better way.
@@ -1078,7 +1071,7 @@ Håkon Nessjøen, <lunatic@cpan.org>
 
 =head1 VERSION
 
-Current version is 0.18.
+Current version is 0.19.
 
 =head1 COPYRIGHT
 
