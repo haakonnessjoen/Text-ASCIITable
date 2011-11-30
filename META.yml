@@ -1,6 +1,6 @@
 --- #YAML:1.0
 name: Text-ASCIITable
-version: 0.19
+version: 0.20
 author:
   - Håkon Nessjøen, <lunatic@cpan.org>
 abstract: Create a nice formatted table using ASCII characters.

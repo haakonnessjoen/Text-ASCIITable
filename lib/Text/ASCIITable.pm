@@ -4,7 +4,7 @@ package Text::ASCIITable;
 @ISA=qw(Exporter);
 @EXPORT = qw();
 @EXPORT_OK = qw();
-$VERSION = '0.19';
+$VERSION = '0.20';
 use Exporter;
 use strict;
 use Carp;
@@ -116,8 +116,8 @@ sub setCols {
   my @out;
   grep {$max = scalar(@{$_}) if scalar(@{$_}) > $max} @lines;
   foreach my $num (0..($max-1)) {
-    my @tmp = map { @{$_}[$num] || '' } @lines;
-    push @out, [ @tmp ];
+    my @tmp = map defined $$_[$num] && $$_[$num], @lines;
+    push @out, \@tmp;
   }
 
   @{$self->{tbl_cols}} = @_;
@@ -165,7 +165,7 @@ DBI::selectall_arrayref($sql) without changes.
 sub addRow {
   my $self = shift;
   @_ = @{$_[0]} if (ref($_[0]) eq 'ARRAY');
-  do { $self->reperror("Received too many columns"); return $self->{options}{chaining} ? $self : 1; } if scalar(@_) > scalar(@{$self->{tbl_cols}});
+  do { $self->reperror("Received too many columns"); return $self->{options}{chaining} ? $self : 1; } if scalar(@_) > scalar(@{$self->{tbl_cols}}) && ref($_[0]) ne 'ARRAY';
   my (@in,@out,@lines,$max);
 
 	if (scalar(@_) > 0 && ref($_[0]) eq 'ARRAY') {
@@ -452,7 +452,7 @@ to use HTML tags to for example color the text inside the rows, and you want the
 =item allowANSI
 
 If you use ANSI codes like <ESC>[1mHi this is bold<ESC>[m or similar. This option will make the table to be
-displayed correct when showed in a ANSI compilant terminal. Set this to 1 to enable. There is an example of ANSI support
+displayed correct when showed in a ANSI compliant terminal. Set this to 1 to enable. There is an example of ANSI support
 in this package, named ansi-example.pl.
 
 =item alignHeadRow
@@ -471,7 +471,7 @@ of this line in the draw() function.
 =item headingText
 
 Add a heading above the columnnames/rows wich uses the whole width of the table to output
-a heading/title to the table. The heading-part of the table is automaticly shown when
+a heading/title to the table. The heading-part of the table is automatically shown when
 the headingText option contains text. B<Note:> If this text is so long that it makes the
 table wider, it will not hesitate to change width of columns that have "strict width".
 
@@ -1071,11 +1071,11 @@ Håkon Nessjøen, <lunatic@cpan.org>
 
 =head1 VERSION
 
-Current version is 0.19.
+Current version is 0.20.
 
 =head1 COPYRIGHT
 
-Copyright 2002-2003 by Håkon Nessjøen.
+Copyright 2002-2011 by Håkon Nessjøen.
 All rights reserved.
 This module is free software;
 you can redistribute it and/or modify it under the same terms as Perl itself.

@@ -1,5 +1,12 @@
 Revision history for Perl extension Text::ASCIITable.
 
+0.20  Wed Nov 30 01:53:22 2011
+	- Patch by Salvatore Bonaccorso <carnil@debian.org> fixed spelling errors
+	  in manpage.
+	- Resolved debian bug #402906.
+	- Patch by <FANY@cpan.org> fixes problem with single-lines '0' not being
+	  printed.
+
 0.19  Wed Nov 23 12:43:12 2011
 	- Added patch by Alexey Sheynuk <asheynuk@iponweb.net> for a big speedup.
 	- Added UTF-8 awareness in counting function.

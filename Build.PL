@@ -6,6 +6,8 @@ my $build = Module::Build->new
    requires => {
                 'perl'           => '5.6.0',
                 'Carp'						=> 0,
+		'List::Util'	=> 0,
+		'Encode'	=> 0
                },
 		create_makefile_pl => 'passthrough',
   );

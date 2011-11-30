@@ -154,7 +154,7 @@ FUNCTIONS
     allowANSI
         If you use ANSI codes like <ESC>[1mHi this is bold<ESC>[m or
         similar. This option will make the table to be displayed correct
-        when showed in a ANSI compilant terminal. Set this to 1 to enable.
+        when showed in a ANSI compliant terminal. Set this to 1 to enable.
         There is an example of ANSI support in this package, named
         ansi-example.pl.
 
@@ -173,10 +173,10 @@ FUNCTIONS
     headingText
         Add a heading above the columnnames/rows wich uses the whole width
         of the table to output a heading/title to the table. The
-        heading-part of the table is automaticly shown when the headingText
-        option contains text. Note: If this text is so long that it makes
-        the table wider, it will not hesitate to change width of columns
-        that have "strict width".
+        heading-part of the table is automatically shown when the
+        headingText option contains text. Note: If this text is so long that
+        it makes the table wider, it will not hesitate to change width of
+        columns that have "strict width".
 
         It supports multiline, and with Text::ASCIITable::Wrap you may wrap
         your text before entering it, to prevent the title from expanding
@@ -421,7 +421,7 @@ AUTHOR
     Håkon Nessjøen, <lunatic@cpan.org>
 
 VERSION
-    Current version is 0.19.
+    Current version is 0.20.
 
 COPYRIGHT
     Copyright 2002-2003 by Håkon Nessjøen. All rights reserved. This module
