@@ -1,5 +1,9 @@
 Revision history for Perl extension Text::ASCIITable.
 
+0.22  Thu Dec 29 15:25:00 2016
+	- Fixed missing version numbers in several files. Fixed some more utf8 problems
+	  in documentation.
+
 0.21  Thu Dec 29 15:25:00 2016
 	- Removed utf8 specific code, since all input should be utf8. Fixes #118483, #102993
 	- Patch by Salvatore Bonaccorso <carnil@debian.org> fixed utf8 in manpages.

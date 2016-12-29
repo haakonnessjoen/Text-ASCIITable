@@ -1,7 +1,7 @@
 ---
 abstract: 'Create a nice formatted table using ASCII characters.'
 author:
-  - 'Håkon Nessjøen, <lunatic@cpan.org>'
+  - 'HÃ¥kon NessjÃ¸en, <lunatic@cpan.org>'
 build_requires: {}
 configure_requires:
   Module::Build: 0.38
@@ -15,7 +15,7 @@ name: Text-ASCIITable
 provides:
   Text::ASCIITable:
     file: lib/Text/ASCIITable.pm
-    version: 0.21
+    version: 0.22
   Text::ASCIITable::Wrap:
     file: lib/Text/ASCIITable/Wrap.pm
     version: 0.2
@@ -26,4 +26,4 @@ requires:
   perl: v5.6.0
 resources:
   license: http://dev.perl.org/licenses/
-version: 0.21
+version: 0.22

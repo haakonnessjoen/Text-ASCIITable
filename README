@@ -88,12 +88,12 @@ FUNCTIONS
     numbers. (HINT: If you want a line after every row, read about the
     drawRowLine option in setOptions())
 
-    Example without arguments: $t->addRow('one','two'¸'three');
-    $t->addRowLine(); $t->addRow('one','two'¸'three');
+    Example without arguments: $t->addRow('one','two','three');
+    $t->addRowLine(); $t->addRow('one','two','three');
 
-    Example with argument: $t->addRow('one','two'¸'three');
-    $t->addRow('one','two'¸'three'); $t->addRow('one','two'¸'three');
-    $t->addRow('one','two'¸'three'); $t->addRowLine(1); # or multiple:
+    Example with argument: $t->addRow('one','two','three');
+    $t->addRow('one','two','three'); $t->addRow('one','two','three');
+    $t->addRow('one','two','three'); $t->addRowLine(1); # or multiple:
     $t->addRowLine([2,3]);
 
   alignCol($col,$direction) or alignCol({col1 => direction1, col2 => direction2, ... })
@@ -418,13 +418,13 @@ REQUIRES
     Exporter, Carp
 
 AUTHOR
-    Håkon Nessjøen, <lunatic@cpan.org>
+    HÃ¥kon NessjÃ¸en, <lunatic@cpan.org>
 
 VERSION
-    Current version is 0.20.
+    Current version is 0.22.
 
 COPYRIGHT
-    Copyright 2002-2003 by Håkon Nessjøen. All rights reserved. This module
+    Copyright 2002-2011 by HÃ¥kon NessjÃ¸en. All rights reserved. This module
     is free software; you can redistribute it and/or modify it under the
     same terms as Perl itself.
 

@@ -1,16 +1,16 @@
 package Text::ASCIITable;
-# by Håkon Nessjøen <lunatic@cpan.org>
+# by HÃ¥kon NessjÃ¸en <lunatic@cpan.org>
 
 @ISA=qw(Exporter);
 @EXPORT = qw();
 @EXPORT_OK = qw();
-$VERSION = '0.21';
+$VERSION = '0.22';
 use Exporter;
 use strict;
 use Carp;
 use Text::ASCIITable::Wrap qw{ wrap };
 use overload '@{}' => 'addrow_overload', '""' => 'drawit';
-use Encode;
+use utf8;
 use List::Util qw(reduce max sum);
 
 =encoding utf8
@@ -223,15 +223,15 @@ Will add a line after the current row. As an argument, you may specify after whi
 or an array of row numbers. (HINT: If you want a line after every row, read about the drawRowLine option in setOptions())
 
 Example without arguments:
-  $t->addRow('one','two'¸'three');
+  $t->addRow('one','two','three');
   $t->addRowLine();
-  $t->addRow('one','two'¸'three');
+  $t->addRow('one','two','three');
 
 Example with argument:
-  $t->addRow('one','two'¸'three');
-  $t->addRow('one','two'¸'three');
-  $t->addRow('one','two'¸'three');
-  $t->addRow('one','two'¸'three');
+  $t->addRow('one','two','three');
+  $t->addRow('one','two','three');
+  $t->addRow('one','two','three');
+  $t->addRow('one','two','three');
   $t->addRowLine(1); # or multiple: $t->addRowLine([2,3]);
 
 =cut
@@ -1072,15 +1072,15 @@ Exporter, Carp
 
 =head1 AUTHOR
 
-Håkon Nessjøen, <lunatic@cpan.org>
+HÃ¥kon NessjÃ¸en, <lunatic@cpan.org>
 
 =head1 VERSION
 
-Current version is 0.20.
+Current version is 0.22.
 
 =head1 COPYRIGHT
 
-Copyright 2002-2011 by Håkon Nessjøen.
+Copyright 2002-2011 by HÃ¥kon NessjÃ¸en.
 All rights reserved.
 This module is free software;
 you can redistribute it and/or modify it under the same terms as Perl itself.

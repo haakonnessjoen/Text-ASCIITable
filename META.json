@@ -1,7 +1,7 @@
 {
    "abstract" : "Create a nice formatted table using ASCII characters.",
    "author" : [
-      "Håkon Nessjøen, <lunatic@cpan.org>"
+      "HÃ¥kon NessjÃ¸en, <lunatic@cpan.org>"
    ],
    "dynamic_config" : 1,
    "generated_by" : "Module::Build version 0.38, CPAN::Meta::Converter version 2.110440",
@@ -31,7 +31,7 @@
    "provides" : {
       "Text::ASCIITable" : {
          "file" : "lib/Text/ASCIITable.pm",
-         "version" : "0.21"
+         "version" : "0.22"
       },
       "Text::ASCIITable::Wrap" : {
          "file" : "lib/Text/ASCIITable/Wrap.pm",
@@ -44,5 +44,5 @@
          "http://dev.perl.org/licenses/"
       ]
    },
-   "version" : "0.21"
+   "version" : "0.22"
 }
