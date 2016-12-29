@@ -3,13 +3,14 @@
 BEGIN { $| = 1; print "1..6\n"; }
 END {print "not ok 1\n" unless $loaded;}
 use Text::ASCIITable;
+use utf8;
 $loaded = 1;
 print "ok 1\n";
 $i=2;
 
 $t = new Text::ASCIITable({ hide_LastLine => 1, hide_HeadLine => 1 });
 ok($t->setCols(['id','nick','name']));
-ok($t->addRow('1','Lunatic-|','Håkon Nessjøen'));
+ok($t->addRow('1','Lunatic-|','HÃ¥kon NessjÃ¸en'));
 $t->addRow('2','tesepe','William Viker');
 $t->addRow('3','espen','Espen Ursin-Holm');
 $t->addRow('4','bonde','Martin Mikkelsen');

@@ -4,7 +4,7 @@ package Text::ASCIITable;
 @ISA=qw(Exporter);
 @EXPORT = qw();
 @EXPORT_OK = qw();
-$VERSION = '0.20';
+$VERSION = '0.21';
 use Exporter;
 use strict;
 use Carp;
@@ -12,6 +12,8 @@ use Text::ASCIITable::Wrap qw{ wrap };
 use overload '@{}' => 'addrow_overload', '""' => 'drawit';
 use Encode;
 use List::Util qw(reduce max sum);
+
+=encoding utf8
 
 =head1 NAME
 
@@ -88,7 +90,6 @@ sub new {
   $self->{options}{alignHeadRow} = $self->{options}{alignHeadRow} || 'auto'; # default setting
   $self->{options}{undef_as} = $self->{options}{undef_as} || ''; # default setting
   $self->{options}{chaining} = $self->{options}{chaining} || 0; # default setting
-  $self->{options}{utf8} = defined($self->{options}{utf8}) ? $self->{options}{utf8} : 1; # default setting
 
   bless $self;
 
@@ -884,7 +885,6 @@ sub count {
   $str =~ s/<.+?>//g if $self->{options}{allowHTML};
   $str =~ s/\33\[(\d+(;\d+)?)?[musfwhojBCDHRJK]//g if $self->{options}{allowANSI}; # maybe i should only have allowed ESC[#;#m and not things not related to
   $str =~ s/\33\([0B]//g if $self->{options}{allowANSI};                           # color/bold/underline.. But I want to give people as much room as they need.
-  $str = decode("utf8", $str) if $self->{options}{utf8};
 
   return length($str);
 }
@@ -908,13 +908,17 @@ sub align {
   } elsif ($dir =~ /right/i) {
     my $visuallen = $self->count($text);
     my $reallen = length($text);
-    $text = (" " x ($length - $visuallen)).$text;
+    if ($length - $visuallen > 0) {
+      $text = (" " x ($length - $visuallen)).$text;
+    }
     return substr($text,0,$length - ($visuallen-$reallen)) if ($strict);
     return $text;
   } elsif ($dir =~ /left/i) {
     my $visuallen = $self->count($text);
     my $reallen = length($text);
-    $text = $text.(" " x ($length - $visuallen));
+    if ($length - $visuallen > 0) {
+      $text = $text.(" " x ($length - $visuallen));
+    }
     return substr($text,0,$length - ($visuallen-$reallen)) if ($strict);
     return $text;
   } elsif ($dir =~ /justify/i) {
@@ -951,7 +955,7 @@ sub align {
     # Someone tell me if this is matematecally totally wrong. :P
     $left = int($left) + 1 if ($left != int($left) && $left > 0.4);
     my $right = int(( $length - $visuallen ) / 2);
-    $text = (" " x $left).$text.(" " x $right);
+    $text = ($left > 0 ? " " x $left : '').$text.($right > 0 ? " " x $right : '');
     return substr($text,0,$length) if ($strict);
     return $text;
   } else {
@@ -992,6 +996,7 @@ sub PUSH {
 
 sub reperror {
   my $self = shift;
+  print STDERR Carp::shortmess(shift) if $self->{options}{reportErrors};
 }
 
 # Best way I could think of, to search the array.. Please tell me if you got a better way.

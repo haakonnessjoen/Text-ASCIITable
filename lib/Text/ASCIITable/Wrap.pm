@@ -8,6 +8,8 @@ use Exporter;
 use strict;
 use Carp;
 
+=encoding utf8
+
 =head1 NAME
 
 Text::ASCIITable::Wrap - Wrap text
